@@ -1,7 +1,8 @@
 # Push a version tag (git tag v1.0.0 && git push origin v1.0.0) and this builds the downloads the
-# installers fetch (openwick.tar.gz, openwick.zip, SHA256SUMS) and publishes a GitHub release,
-# then adds the desktop installers to it: Windows .exe, macOS .dmg (Apple chip and Intel),
-# Linux .AppImage and .deb. The tag must match "version" in package.json (v1.0.0 = 1.0.0).
+# installers fetch (openwick.tar.gz, openwick.zip, SHA256SUMS) into a draft GitHub release, adds
+# the desktop installers to it (Windows .exe, macOS .dmg for Apple chip and Intel, Linux .AppImage
+# and .deb), and only then makes it public. If any build fails, the release stays a hidden draft.
+# The tag must match "version" in package.json (v1.0.0 = 1.0.0).
 name: release
 on:
   push:
@@ -22,10 +23,10 @@ jobs:
         run: npm test
       - name: Build the downloads
         run: node scripts/package.js
-      - name: Publish the release
+      - name: Create the release as a draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "OpenWick $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --title "OpenWick $GITHUB_REF_NAME" --generate-notes
 
   desktop:
     needs: release
@@ -57,3 +58,12 @@ jobs:
           files=(dist/desktop/*.exe dist/desktop/*.dmg dist/desktop/*.AppImage dist/desktop/*.deb)
           [ ${#files[@]} -gt 0 ] || { echo "No installers were built"; exit 1; }
           gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+
+  publish:
+    needs: desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make the release public
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --draft=false --latest

@@ -69,20 +69,21 @@ jobs:
           Start-Sleep -Seconds 4
           if (-not (Test-Path "$D\ci-keep.json")) { throw "uninstall deleted the data" }
 
-  # The desktop app: build it unpacked on each OS, start it, check its server answers.
+  # The desktop app: build the real installers on each OS, start the built app, check its server
+  # answers, and keep the installers as downloads of this run (14 days) for testing by hand.
   desktop:
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
-            build: --linux dir
+            build: --linux
             exe: dist/desktop/linux-unpacked/openwick --no-sandbox
           - os: windows-latest
-            build: --win dir
+            build: --win
             exe: dist/desktop/win-unpacked/OpenWick.exe
           - os: macos-latest
-            build: --mac dir --arm64
+            build: --mac
             exe: dist/desktop/mac-arm64/OpenWick.app/Contents/MacOS/OpenWick
     runs-on: ${{ matrix.os }}
     steps:
@@ -90,7 +91,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build
+      - name: Build the installers
         shell: bash
         run: npx --yes electron-builder@26.18.0 --config electron-builder.yml ${{ matrix.build }} --publish never
       - name: Start it and check it answers
@@ -103,3 +104,16 @@ jobs:
             sleep 2
           done
           cat desktop.log; exit 1
+      - name: List the installers
+        shell: bash
+        run: ls -la dist/desktop | grep -E "\.(exe|dmg|AppImage|deb)$"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenWick-installer-${{ runner.os }}
+          path: |
+            dist/desktop/*.exe
+            dist/desktop/*.dmg
+            dist/desktop/*.AppImage
+            dist/desktop/*.deb
+          if-no-files-found: error
+          retention-days: 14
