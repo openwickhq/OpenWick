@@ -2,7 +2,7 @@
 
 Please don't report security problems in public issues.
 
-Report them privately here: **[github.com/openwickhq/openwick/security/advisories/new](https://github.com/openwickhq/openwick/security/advisories/new)**
+Report them privately here: **[github.com/openwickhq/OpenWick/security/advisories/new](https://github.com/openwickhq/OpenWick/security/advisories/new)**
 
 Say what the problem is, how to reproduce it, and which version you use. You'll get an answer within a week. Once it's fixed, you'll be credited in the release notes if you want.
 

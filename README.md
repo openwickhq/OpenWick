@@ -17,7 +17,7 @@ Created by **Sourav Chakraborty**. Open source under the MIT licence.
 
 ## Install
 
-**Desktop app.** Download the installer for your computer from the [latest release](https://github.com/openwickhq/openwick/releases/latest) and open it:
+**Desktop app.** Download the installer for your computer from the [latest release](https://github.com/openwickhq/OpenWick/releases/latest) and open it:
 
 | Computer | File |
 |---|---|
@@ -38,13 +38,13 @@ The installers aren't code-signed yet, so the first time:
 **macOS and Linux** (in Terminal):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/openwickhq/openwick/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/openwickhq/OpenWick/main/install.sh | sh
 ```
 
 **Windows** (in PowerShell):
 
 ```powershell
-irm https://raw.githubusercontent.com/openwickhq/openwick/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/openwickhq/OpenWick/main/install.ps1 | iex
 ```
 
 It installs into your home folder (`~/.openwick`, or `%LOCALAPPDATA%\OpenWick` on Windows), adds an **OpenWick** entry to your app menu (Start menu and desktop on Windows), and opens the app in your browser.

@@ -1,7 +1,7 @@
 #!/bin/sh
 # OpenWick installer for macOS and Linux. One command:
 #
-#   curl -fsSL https://raw.githubusercontent.com/openwickhq/openwick/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/openwickhq/OpenWick/main/install.sh | sh
 #
 # What it does, all inside your home folder (no sudo, no admin rights):
 #   1. Uses your Node.js 18+ if you have it; otherwise downloads Node.js from nodejs.org into
@@ -17,7 +17,7 @@
 #   OPENWICK_NO_PATH=1        don't add ~/.local/bin to your shell's PATH
 set -eu
 
-REPO="${OPENWICK_REPO:-openwickhq/openwick}"   # GitHub "owner/name", set when publishing
+REPO="${OPENWICK_REPO:-openwickhq/OpenWick}"   # GitHub "owner/name", set when publishing
 APP_ID="openwick"
 APP_NAME="OpenWick"
 NODE_LINE="latest-v24.x"                       # long-term-support Node.js, if one is needed

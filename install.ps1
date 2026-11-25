@@ -1,6 +1,6 @@
 # OpenWick installer for Windows. One command, in PowerShell:
 #
-#   irm https://raw.githubusercontent.com/openwickhq/openwick/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/openwickhq/OpenWick/main/install.ps1 | iex
 #
 # What it does, all inside your user folder (no admin rights):
 #   1. Uses your Node.js 18+ if you have it; otherwise downloads Node.js from nodejs.org into
@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"   # much faster downloads in Windows PowerShell 5
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Repo     = if ($env:OPENWICK_REPO) { $env:OPENWICK_REPO } else { "openwickhq/openwick" }
+$Repo     = if ($env:OPENWICK_REPO) { $env:OPENWICK_REPO } else { "openwickhq/OpenWick" }
 $AppId    = "openwick"
 $AppName  = "OpenWick"
 $NodeLine = "latest-v24.x"

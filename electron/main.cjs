@@ -16,7 +16,7 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const pkg = require(path.join(ROOT, "package.json"));
-const REPO = "openwickhq/openwick"; // set by scripts/set-repo.js when publishing
+const REPO = "openwickhq/OpenWick"; // set by scripts/set-repo.js when publishing
 const CREATOR = "Sourav Chakraborty";
 const PORT = 3787; // its own port, so it doesn't clash with a copy started from the terminal
 

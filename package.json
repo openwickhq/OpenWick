@@ -4,12 +4,12 @@
   "description": "OpenWick: a private, local trading terminal.",
   "author": "Sourav Chakraborty",
   "license": "MIT",
-  "homepage": "https://github.com/openwickhq/openwick",
+  "homepage": "https://github.com/openwickhq/OpenWick",
   "repository": {
     "type": "git",
-    "url": "https://github.com/openwickhq/openwick.git"
+    "url": "https://github.com/openwickhq/OpenWick.git"
   },
-  "bugs": "https://github.com/openwickhq/openwick/issues",
+  "bugs": "https://github.com/openwickhq/OpenWick/issues",
   "main": "electron/main.cjs",
   "type": "module",
   "private": true,
