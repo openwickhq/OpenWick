@@ -1,13 +1,19 @@
 name: ci
 on: [push, pull_request, workflow_dispatch]
 jobs:
+  # Every Node.js version on Linux and Windows; one on macOS, because GitHub's Mac machines are
+  # scarce and jobs waiting for one can be cancelled.
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         node: [18, 20, 22, 24]
+        include:
+          - os: macos-latest
+            node: 22
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
