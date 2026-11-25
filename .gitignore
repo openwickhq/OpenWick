@@ -1,0 +1,10 @@
+node_modules/
+data/
+*.tmp
+.DS_Store
+video/
+dist/
+target/
+custom/signal-*.js
+# Company figures are Yahoo data: each copy downloads its own (lib/refresh.js), so it is not shipped.
+lib/universe/nse-fundamentals.json

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap sym-page" id="page">
+      <div class="sp-head" id="head"><div class="skeleton" style="height:70px"></div></div>
+      <nav class="sp-tabs" id="tabs"></nav>
+
+      <section class="sp-sec" id="overview">
+        <div class="sp-grid">
+          <div class="panel sp-chart">
+            <div class="sp-chart-bar"><div class="seg small" id="ranges"></div><span class="spacer"></span><a class="sp-open" id="openChart" href="/chart">Open full chart ›</a></div>
+            <div id="miniChart"></div>
+            <div class="sp-perf" id="perf"></div>
+          </div>
+          <div class="panel sp-stats"><h3>Key stats</h3><div id="stats" class="kv"><div class="skeleton"></div></div></div>
+        </div>
+      </section>
+
+      <section class="sp-sec" id="technicalsSec">
+        <div class="block-head"><h2>Technicals <small>ratings from 11 oscillators and 15 moving averages</small></h2><a id="techLink" href="/chart">Open on the chart ›</a></div>
+        <div class="panel" id="technicals"></div>
+      </section>
+
+      <section class="sp-sec" id="membersSec" hidden>
+        <div class="block-head"><h2>Members <small id="membersNote"></small></h2></div>
+        <div class="panel"><div id="breadthBar"></div><div class="sc-wrap"><table class="sc" id="members"></table></div></div>
+      </section>
+
+      <section class="sp-sec" id="financialsSec" hidden>
+        <div class="block-head"><h2>Financials</h2></div>
+        <div class="panel" id="financials"></div>
+      </section>
+
+      <section class="sp-sec" id="seasonalsSec">
+        <div class="block-head"><h2>Seasonals <small>each calendar year's path and the monthly returns</small></h2></div>
+        <div class="panel sp-seas" id="seasonals"></div>
+      </section>
+
+      <section class="sp-sec" id="peersSec" hidden>
+        <div class="block-head"><h2>Sector peers <small id="peersNote"></small></h2><a id="peersLink" href="/screener">See the sector in the screener ›</a></div>
+        <div class="panel"><div class="sc-wrap"><table class="sc" id="peers"></table></div></div>
+      </section>
+
+      <section class="sp-sec" id="aboutSec" hidden>
+        <div class="block-head"><h2>Part of these indices</h2></div>
+        <div class="panel"><div class="chips" id="indices"></div></div>
+      </section>
+
+      <section class="sp-sec" id="newsSec">
+        <div class="block-head"><h2>News</h2><a href="/news">All news ›</a></div>
+        <div class="panel"><div id="news" class="news"><div class="skeleton"></div></div></div>
+      </section>
+    </main>
+    <script src="/vendor/lightweight-charts.standalone.production.js"></script>
+    <script type="module" src="/js/symbol-page.js"></script>
+  </body>
+</html>

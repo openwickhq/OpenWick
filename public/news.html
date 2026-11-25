@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>News · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap">
+      <div class="pg-head">
+        <h1>News</h1>
+        <div class="seg" id="topics">
+          <button data-t="india">Indian markets</button>
+          <button data-t="crypto">Crypto</button>
+        </div>
+        <span class="spacer"></span>
+        <label class="pill search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg><input id="forSym" placeholder="News for a stock or coin: TCS, INFY, SOL…" autocomplete="off" /></label>
+      </div>
+      <div class="sc-meta"><span id="newsNote" class="muted"></span></div>
+      <div class="news-grid" id="list"></div>
+    </main>
+    <script type="module" src="/js/news-page.js"></script>
+  </body>
+</html>

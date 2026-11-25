@@ -1,0 +1,31 @@
+name: Bug report
+description: Something doesn't work as it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Screenshots help.
+    validations:
+      required: true
+  - type: input
+    id: symbol
+    attributes:
+      label: Symbol and timeframe (if it's about a chart)
+      placeholder: e.g. RELIANCE, 1D
+  - type: dropdown
+    id: how
+    attributes:
+      label: How you run OpenWick
+      options: [Desktop app, One-command install (in the browser), From the source code]
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Computer and version
+      description: Your operating system, and the OpenWick version (Help → About, or `openwick version`).
+      placeholder: e.g. Windows 11, OpenWick 0.1.0
+    validations:
+      required: true

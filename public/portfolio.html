@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portfolio · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap pf">
+      <div class="pg-head">
+        <h1>Portfolio</h1>
+        <span class="muted" id="source"></span>
+        <span class="spacer"></span>
+        <div class="pf-btns" id="btns"></div>
+        <input type="file" id="file" accept=".csv,.xlsx,text/csv" hidden />
+      </div>
+      <div id="msg"></div>
+
+      <section id="empty" class="panel pf-empty" hidden>
+        <div class="pf-drop" id="drop">
+          <svg viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4M5 15v4h14v-4" /></svg>
+          <b>Drop your Zerodha holdings file here</b>
+          <span>or <button class="linklike" id="pick">choose a file</button> · CSV or Excel (.xlsx)</span>
+        </div>
+        <div class="pf-how">
+          <h3>Where to get the file</h3>
+          <ol>
+            <li><b>Kite</b> (web): Holdings → the download icon above the list → CSV.</li>
+            <li><b>Console</b>: Portfolio → Holdings → Download (Excel works too).</li>
+            <li><b>Console tradebook</b>: Reports → Tradebook → Equity → pick dates from your first trade → Download CSV. Holdings are then worked out from your trades, with realised profit.</li>
+          </ol>
+          <p class="muted">The file is read in your browser. Only the stock symbols, quantities and average prices are kept, in <code>data/portfolio.json</code> on this computer. Nothing is sent to Zerodha or anywhere else.</p>
+          <p><button class="linklike" id="manualBtn">Or type your holdings in by hand</button></p>
+        </div>
+      </section>
+
+      <section id="main" hidden>
+        <div class="pf-cards" id="cards"></div>
+        <div class="pf-grid">
+          <div class="panel">
+            <div class="pf-table-head"><h3>Holdings</h3><span class="spacer"></span><button class="pill btnlike" id="addRow">+ Add a holding</button></div>
+            <div class="sc-wrap"><table class="sc" id="table"></table></div>
+          </div>
+          <div class="pf-side">
+            <div class="panel"><h3>By sector <small class="muted">you vs NIFTY 50</small></h3><div id="sectors" class="pf-sectors"></div></div>
+          </div>
+        </div>
+        <section class="block">
+          <div class="block-head"><h2>News on your holdings</h2></div>
+          <div class="panel"><div id="news" class="news"></div></div>
+        </section>
+      </section>
+    </main>
+    <div class="pf-modal hidden" id="modal"><div class="pf-dialog" id="dialog"></div></div>
+    <script type="module" src="/js/portfolio-page.js"></script>
+  </body>
+</html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body class="home">
+    <!-- Forest, Neusträßer Bruch, Dülmen. Photo: Dietmar Rabich, CC BY-SA 4.0 (cropped; darkened for the
+         dark theme, lightened and desaturated for the light theme). The picture is set in site.css. -->
+    <div class="cosmos" aria-hidden="true"></div>
+    <header class="h-nav"></header>
+
+    <main>
+      <section class="hero">
+        <h1>Your markets.<br /><span>On your machine.</span></h1>
+        <p>An open-source charting platform for Indian stocks, indices and crypto. Free to use, free to change, and it runs on your own computer.</p>
+        <div class="h-search big" id="heroSearch">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+          <input id="heroQ" placeholder="Search a stock, index or coin: RELIANCE, BANKNIFTY, BTC…" autocomplete="off" />
+          <div class="h-results" id="heroResults"></div>
+        </div>
+        <div class="chips" id="chips"></div>
+        <a class="cosmos-credit" href="https://commons.wikimedia.org/wiki/File:D%C3%BClmen,_Kirchspiel,_Neustr%C3%A4%C3%9Fer_Bruch_--_2021_--_9364.jpg" target="_blank" rel="noopener">Photo: Dietmar Rabich · CC BY-SA 4.0</a>
+      </section>
+
+      <section class="block">
+        <div class="block-head"><h2>Market summary</h2><a href="/chart">See all on the chart ›</a></div>
+        <div class="tiles" id="tiles"></div>
+      </section>
+
+      <section class="block" id="breadthBlock">
+        <div class="block-head"><h2>Market breadth <small id="breadthWhen">NIFTY 500</small></h2><a href="/heatmap">Open the heatmap ›</a></div>
+        <div class="panel breadth" id="breadth"><div class="skeleton"></div></div>
+      </section>
+
+      <section class="block" id="india">
+        <div class="block-head"><h2>Indian stocks</h2><a href="/screener">Open the screener ›</a></div>
+        <div class="cols three">
+          <div class="panel"><h3>Top gainers <small>NIFTY 500</small></h3><div id="nseUp" class="list"></div></div>
+          <div class="panel"><h3>Top losers <small>NIFTY 500</small></h3><div id="nseDown" class="list"></div></div>
+          <div class="panel"><h3>Sectors today</h3><div id="sectors" class="bars"></div></div>
+        </div>
+      </section>
+
+      <section class="block" id="crypto">
+        <div class="block-head"><h2>Crypto</h2><a href="/chart?symbol=BTCUSDT">Open Bitcoin ›</a></div>
+        <div class="cols three">
+          <div class="panel"><h3>Biggest coins</h3><div id="coinsTop" class="list"></div></div>
+          <div class="panel"><h3>Gainers <small>24h, top 500</small></h3><div id="coinsUp" class="list"></div></div>
+          <div class="panel"><h3>Losers <small>24h, top 500</small></h3><div id="coinsDown" class="list"></div></div>
+        </div>
+      </section>
+
+      <section class="block" id="newsBlock">
+        <div class="block-head"><h2>News</h2><a href="/news">All headlines ›</a></div>
+        <div class="cols two">
+          <div class="panel"><h3>Indian markets <small>Economic Times, Mint, Business Standard, Moneycontrol</small></h3><div id="newsIndia" class="news"></div></div>
+          <div class="panel"><h3>Crypto <small>Cointelegraph, Decrypt</small></h3><div id="news" class="news"></div></div>
+        </div>
+      </section>
+
+      <section class="block">
+        <div class="panel"><h3>India calendar <small>RBI, data and F&amp;O expiry</small></h3><div id="calendar" class="cal"></div></div>
+      </section>
+    </main>
+
+    <footer class="h-foot">
+      <span>OpenWick, created by Sourav Chakraborty. Open source (MIT). It runs on this computer. Prices from Yahoo Finance, Binance, Coinbase, Kraken and CoinGecko; news from the publishers named on each headline; Indian prices can be delayed. Nothing here is investment advice.</span>
+    </footer>
+    <script type="module" src="/js/home.js"></script>
+  </body>
+</html>

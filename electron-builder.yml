@@ -1,0 +1,49 @@
+# Desktop installers, built by GitHub Actions on each release (.github/workflows/release.yml).
+# By hand, from a source copy:  npm run desktop:build   (output in dist/desktop)
+appId: app.openwick.desktop
+productName: OpenWick
+copyright: Copyright (c) 2026 The OpenWick Authors, created by Sourav Chakraborty
+artifactName: OpenWick-${version}-${os}-${arch}.${ext}
+directories:
+  output: dist/desktop
+  buildResources: build
+# server.js runs as a separate process, so the app files stay as plain files (no asar archive).
+asar: false
+files:
+  - "**/*"
+  - "!data/**"
+  - "!dist/**"
+  - "!test/**"
+  - "!examples/**"
+  - "!docs/screenshots/**"
+  - "!scripts/check.js"
+  - "!install.sh"
+  - "!install.ps1"
+  - "!.github/**"
+  - "!node_modules/**"
+electronVersion: 45.5.0
+linux:
+  target: [AppImage, deb]
+  category: Office;Finance
+  synopsis: Charts for Indian stocks, indices and crypto
+  maintainer: Sourav Chakraborty
+  icon: build/icon.png
+win:
+  target: [nsis]
+  icon: build/icon.png
+nsis:
+  oneClick: false
+  perMachine: false            # installs for the current user: no admin rights needed
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: OpenWick
+  deleteAppDataOnUninstall: false   # your charts survive an uninstall or reinstall
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  category: public.app-category.finance
+  icon: build/icon.png
+  identity: "-"                # ad-hoc signature until there is an Apple Developer ID
+publish: null

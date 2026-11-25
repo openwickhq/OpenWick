@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heatmap · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body class="hm-page">
+    <header class="h-nav"></header>
+    <main class="wrap wide">
+      <div class="pg-head">
+        <h1>Heatmap</h1>
+        <div class="seg" id="markets">
+          <button data-u="nse">NIFTY 500 by industry</button>
+          <button data-u="indices">Indian indices</button>
+          <button data-u="crypto500">Crypto top 500</button>
+          <button data-u="crypto">Crypto most traded</button>
+        </div>
+        <span class="spacer"></span>
+        <label class="pill" id="sizeBox">Size by<select id="size"><option value="marketCap">Market cap</option><option value="volume">Volume</option></select></label>
+        <div class="legend-scale" id="legend"></div>
+      </div>
+      <div class="hm-box"><canvas id="hm"></canvas><div class="hm-msg" id="msg"></div></div>
+      <div class="sc-meta"><span class="muted" id="note"></span></div>
+    </main>
+    <script type="module" src="/js/heatmap-page.js"></script>
+  </body>
+</html>

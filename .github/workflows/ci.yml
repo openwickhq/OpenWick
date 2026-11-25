@@ -1,0 +1,105 @@
+name: ci
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [18, 20, 22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Offline tests
+        run: npm test
+      - name: Doctor (which free data sources this runner can reach)
+        run: npm run doctor
+      - name: Smoke test (real server, real data)
+        run: npm run smoke
+
+  # The one-command installers, on each OS, from a release archive built from this commit:
+  # install, check it answers, update (data must survive), uninstall.
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      OW_NO_OPEN: "1"
+      OPENWICK_NO_SHORTCUTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the release archives
+        run: node scripts/package.js
+      - name: Install, update, uninstall (macOS, Linux)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          export OPENWICK_SOURCE="$PWD/dist/openwick.tar.gz"
+          sh install.sh
+          curl -fsS http://127.0.0.1:3777/api/health
+          # Data lives in the folder shared with the desktop app, not in the app folder.
+          if [ "$RUNNER_OS" = macOS ]; then D="$HOME/Library/Application Support/OpenWick/data"; else D="$HOME/.config/OpenWick/data"; fi
+          echo '{"keep":1}' > "$D/ci-keep.json"
+          ~/.local/bin/openwick update
+          test -f "$D/ci-keep.json"
+          ~/.local/bin/openwick status
+          ~/.local/bin/openwick uninstall --yes
+          test ! -d ~/.openwick
+          test -f "$D/ci-keep.json"
+      - name: Install, update, uninstall (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $env:OPENWICK_SOURCE = "$PWD\dist\openwick.zip"
+          .\install.ps1
+          (Invoke-WebRequest -Uri http://127.0.0.1:3777/api/health -UseBasicParsing).Content
+          $D = "$env:APPDATA\OpenWick\data"
+          Set-Content "$D\ci-keep.json" '{"keep":1}'
+          & "$env:LOCALAPPDATA\OpenWick\bin\openwick.cmd" update
+          if (-not (Test-Path "$D\ci-keep.json")) { throw "update lost the data" }
+          & "$env:LOCALAPPDATA\OpenWick\bin\openwick.cmd" uninstall --yes
+          Start-Sleep -Seconds 4
+          if (-not (Test-Path "$D\ci-keep.json")) { throw "uninstall deleted the data" }
+
+  # The desktop app: build it unpacked on each OS, start it, check its server answers.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build: --linux dir
+            exe: dist/desktop/linux-unpacked/openwick --no-sandbox
+          - os: windows-latest
+            build: --win dir
+            exe: dist/desktop/win-unpacked/OpenWick.exe
+          - os: macos-latest
+            build: --mac dir --arm64
+            exe: dist/desktop/mac-arm64/OpenWick.app/Contents/MacOS/OpenWick
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build
+        shell: bash
+        run: npx --yes electron-builder@26.18.0 --config electron-builder.yml ${{ matrix.build }} --publish never
+      - name: Start it and check it answers
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get install -y xvfb >/dev/null; RUN="xvfb-run -a"; fi
+          $RUN ${{ matrix.exe }} > desktop.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3787/api/health; then echo; echo "Desktop app is up."; exit 0; fi
+            sleep 2
+          done
+          cat desktop.log; exit 1

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a id="homeBtn" class="tb icon brand" href="/" title="OpenWick home">
+        <img class="logo" src="/img/logo.svg" width="26" height="26" alt="OpenWick" />
+      </a>
+      <button id="symbolBtn" class="symbol-box" title="Symbol search (or just start typing)">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+        <span id="symbolLabel">NIFTY</span>
+      </button>
+      <div class="dd" id="viewDd">
+        <button id="viewBtn" class="tb view-btn" title="Switch view: chart, financials, seasonals, news, technicals"><span id="viewLabel">Chart</span><svg class="caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
+        <div class="dd-menu view-menu tb-menu" id="viewMenu"></div>
+      </div>
+      <button id="compareBtn" class="tb icon" title="Compare or add symbol">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 8v8M8 12h8" /></svg>
+      </button>
+      <div class="sep"></div>
+      <div class="dd" id="tfDd">
+        <button id="tfBtn" class="tb" title="Interval"><span id="tfLabel">1D</span><svg class="caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
+        <div class="dd-menu tb-menu" id="tfMenu">
+          <div class="dd-title">Interval</div>
+          <div id="tfButtons" class="tf-list"></div>
+          <div class="dd-sep"></div>
+          <label class="dd-custom">Custom <input id="tfCustom" class="tf-custom" placeholder="7m" title="Any interval: 1s, 7m, 2h, 3D, 2W, 3M" size="5" /></label>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="dd" id="typeDd">
+        <button id="typeBtn" class="tb pick-btn" title="Chart type"><span class="pick-ic" id="typeIcon"></span><span id="typeLabel">Candles</span><svg class="caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
+        <div class="dd-menu pick-menu tb-menu" id="typeMenu"></div>
+      </div>
+      <div class="sep"></div>
+      <button id="indicatorsBtn" class="tb" title="Indicators, metrics and strategies">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 3" /></svg><span>Indicators</span>
+      </button>
+      <button id="tplBtn" class="tb icon" title="Chart templates: save this chart's type and indicators, or apply saved ones">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><path d="M16.5 13v7M13 16.5h7" /></svg>
+      </button>
+      <div class="sep"></div>
+      <button id="alertBtn" class="tb" title="Create alert">
+        <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4zM10 20h4" /></svg><span>Alert</span>
+      </button>
+      <button id="replayBtn" class="tb" title="Bar replay">
+        <svg viewBox="0 0 24 24"><path d="M11 7l-6 5 6 5zM19 7l-6 5 6 5z" /></svg><span>Replay</span>
+      </button>
+      <div class="sep"></div>
+      <button id="undoBtn" class="tb icon" title="Undo (Ctrl+Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg></button>
+      <button id="redoBtn" class="tb icon" title="Redo (Ctrl+Y)" disabled><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" /></svg></button>
+      <div class="spacer"></div>
+      <button id="layoutsBtn" class="tb layouts-btn" title="Saved layouts: switch, save (Ctrl+S), rename or start a new one"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" /></svg><span id="layoutName">Unnamed</span><svg class="caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
+      <div class="dd" id="gridDd">
+        <button id="gridBtn" class="tb pick-btn" title="Chart layout: how many charts"><span class="pick-ic" id="gridIcon"></span><span id="gridLabel">1 chart</span><svg class="caret" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
+        <div class="dd-menu pick-menu tb-menu" id="gridMenu"></div>
+      </div>
+      <label class="tb check" title="Change the symbol on every chart at once"><input type="checkbox" id="syncSymbol" /> Sync</label>
+      <div class="sep"></div>
+      <button id="settingsBtn" class="tb icon" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      <button id="fullBtn" class="tb icon" title="Fullscreen"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg></button>
+      <button id="snapBtn" class="tb icon" title="Download chart image"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="3.5" /><path d="M8 6l2-3h4l2 3" /></svg></button>
+      <button id="csvBtn" class="tb icon" title="Export chart data (CSV)"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg></button>
+      <button id="themeBtn" class="tb icon" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg></button>
+      <span id="status" class="status" title="Data status"></span>
+    </header>
+    <div class="main">
+      <nav class="drawbar" id="drawbar"></nav>
+      <aside class="paper-dock hidden" id="paperDock">
+        <div class="pd-head"><b>Paper trading</b><span class="spacer"></span><button id="paperClose" class="icon" title="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button></div>
+        <div class="pd-body" id="paperBody"></div>
+      </aside>
+      <section class="fullview hidden" id="fullView"></section>
+      <section class="center">
+        <div id="grid" class="grid"></div>
+        <div class="rangebar" id="rangebar">
+          <div id="rangeButtons" class="range-list"></div>
+          <div class="sep"></div>
+          <button id="gotoBtn" class="tb icon" title="Go to date"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4M12 13v4M10 15h4" /></svg></button>
+          <div class="spacer"></div>
+          <button id="testerBtn" class="tb small tester-btn" title="Strategy tester: backtest a strategy on this chart"><svg viewBox="0 0 24 24"><path d="M4 19h16M6 15l4-4 3 3 5-6" /></svg>Strategy tester</button>
+          <div class="sep"></div>
+          <span id="clock" class="clock" title="India time (IST)"></span>
+          <div class="sep"></div>
+          <button id="logBtn" class="tb small" title="Logarithmic price scale">log</button>
+        </div>
+        <div id="bottom" class="bottom collapsed">
+          <div class="tabs" id="bottomTabs">
+            <b id="bottomTitle" class="bottom-title">Strategy tester</b>
+            <div class="spacer"></div>
+            <button id="bottomToggle" class="icon" title="Close panel">
+              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            </button>
+          </div>
+          <div class="tab-body" id="bottomBody"></div>
+        </div>
+      </section>
+      <aside class="side">
+        <div class="tab-body" id="sideBody"></div>
+      </aside>
+      <nav class="rail" id="sideTabs">
+        <button data-tab="watchlist" class="active" title="Watchlist and details"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M8 9h8M8 13h8M8 17h5" /></svg></button>
+        <button data-tab="alerts" title="Alerts"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" /><path d="M12 9v4l2.5 2M5 4L2.5 6.5M19 4l2.5 2.5" /></svg></button>
+        <button data-tab="calendar" title="Economic calendar"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M4 10h16M9 3v4M15 3v4" /></svg></button>
+        <button data-tab="objects" title="Object tree and data window"><svg viewBox="0 0 24 24"><path d="M5 5h5v5H5zM14 14h5v5h-5zM7.5 10v6.5H14M14 7.5h5M14 4.5h5M14 10.5h3" /></svg></button>
+        <button data-tab="news" title="News"><svg viewBox="0 0 24 24"><path d="M5 5h11v14H7a2 2 0 0 1-2-2zM16 9h3v8a2 2 0 0 1-2 2M8 9h5M8 12h5M8 15h3" /></svg></button>
+        <hr />
+        <a href="/screener" title="Screener (opens its page)"><svg viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4 2v-8z" /></svg></a>
+        <a href="/heatmap" title="Heatmap (opens its page)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="9" height="9" rx="1" /><rect x="15" y="4" width="5" height="5" rx="1" /><rect x="15" y="11" width="5" height="9" rx="1" /><rect x="4" y="15" width="9" height="5" rx="1" /></svg></a>
+        <div class="spacer"></div>
+        <a href="/" title="Home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 9.5V20h12V9.5" /></svg></a>
+      </nav>
+    </div>
+
+    <div id="modal" class="modal hidden">
+      <div class="modal-card" id="modalCard"></div>
+    </div>
+    <div id="toasts" class="toasts"></div>
+
+    <script src="/vendor/lightweight-charts.standalone.production.js"></script>
+    <script>
+      // Opened as a file, the browser blocks the chart library and the app's scripts, so nothing works.
+      // Served, an ad blocker or browser shield can still stop the chart library loading.
+      if (location.protocol === "file:" || !window.LightweightCharts) {
+        var chartBlocked = document.createElement("div");
+        chartBlocked.id = "chartBlocked";
+        chartBlocked.style.cssText = "position:fixed;left:50%;top:80px;transform:translateX(-50%);z-index:9999;max-width:480px;padding:14px 18px;border-radius:8px;background:#7a1f1f;color:#fff;font:14px/1.4 sans-serif";
+        chartBlocked.textContent = location.protocol === "file:"
+          ? "You opened this file directly, so the browser blocks the chart and the buttons. Close this tab. In the app folder, run node scripts/launch.js. It opens the app in your browser at a localhost address, usually http://localhost:3777."
+          : "The chart library didn't load, so charts can't draw. An ad blocker or browser shield is the usual cause. Turn it off for this page and reload.";
+        document.body.appendChild(chartBlocked);
+      }
+    </script>
+    <script type="module" src="/js/app.js"></script>
+  </body>
+</html>

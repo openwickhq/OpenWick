@@ -1,0 +1,257 @@
+// OpenWick desktop app. A thin window around the same local server the browser version uses:
+// it starts server.js with Electron's built-in Node, waits for it, and shows the app in a window.
+//
+// Your data is kept in your user folder (not in the install folder, which can be read-only),
+// the same folder the one-command install uses, so both see the same charts (lib/user-dirs.js):
+//   Windows  %APPDATA%\OpenWick      macOS  ~/Library/Application Support/OpenWick
+//   Linux    ~/.config/OpenWick
+// If OpenWick is already running on that folder (started with the `openwick` command), the
+// window uses that server instead of starting a second one that would overwrite its saves.
+// Run it from a source copy with `npm run desktop`.
+const { app, BrowserWindow, Menu, dialog, shell, nativeTheme } = require("electron");
+const { spawn } = require("node:child_process");
+const { pathToFileURL } = require("node:url");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const ROOT = path.join(__dirname, "..");
+const pkg = require(path.join(ROOT, "package.json"));
+const REPO = "openwickhq/openwick"; // set by scripts/set-repo.js when publishing
+const CREATOR = "Sourav Chakraborty";
+const PORT = 3787; // its own port, so it doesn't clash with a copy started from the terminal
+
+app.setName("OpenWick");
+if (process.platform === "win32") app.setAppUserModelId("app.openwick.desktop");
+
+// One copy at a time: opening it again brings the running window forward.
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  let win = null, server = null, url = null, quitting = false;
+  let user = app.getPath("userData");
+  let dirs = { OW_DATA_DIR: path.join(user, "data") };
+  const logFile = () => path.join(dirs.OW_DATA_DIR, "desktop.log");
+  const log = (m) => {
+    try { fs.appendFileSync(logFile(), `${new Date().toISOString()} ${m}\n`); } catch { /* not fatal */ }
+  };
+
+  // The shared folders, made on first run (the example indicators are copied in once).
+  async function firstRun() {
+    const ud = await import(pathToFileURL(path.join(ROOT, "lib", "user-dirs.js")).href);
+    user = ud.sharedDir();
+    dirs = ud.prepareShared(ROOT).env;
+  }
+
+  const same = (a, b) => !!a && !!b && path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+  // An OpenWick server already running on the same data folder, if there is one.
+  async function findRunning() {
+    for (let p = 3777; p <= 3797; p++) {
+      try {
+        const r = await fetch(`http://127.0.0.1:${p}/api/health`, { signal: AbortSignal.timeout(500) });
+        const h = await r.json();
+        if (h.app === "openwick" && same(h.data, dirs.OW_DATA_DIR)) return `http://127.0.0.1:${p}`;
+      } catch { /* not here */ }
+    }
+    return null;
+  }
+  // When borrowing another server, keep an eye on it: if it's stopped, start our own and reload.
+  function watchBorrowed() {
+    const t = setInterval(async () => {
+      try {
+        await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1500) });
+      } catch {
+        clearInterval(t);
+        log(`the server at ${url} went away; starting our own`);
+        url = null;
+        try {
+          await startServer();
+          if (win) win.loadURL(`${url}/chart`);
+        } catch (e) {
+          dialog.showErrorBox("OpenWick stopped", `${e.message}\n\nDetails: ${logFile()}`);
+          app.quit();
+        }
+      }
+    }, 4000);
+  }
+
+  // Start server.js with Electron acting as plain Node. Resolves with the address it's on.
+  function startServer() {
+    return new Promise((resolve, reject) => {
+      server = spawn(process.execPath, [path.join(ROOT, "server.js")], {
+        cwd: ROOT,
+        env: { ...process.env, ...dirs, ELECTRON_RUN_AS_NODE: "1", PORT: String(PORT) },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      });
+      let out = "";
+      const timer = setTimeout(() => reject(new Error(`The server didn't start in 60 seconds.\n\n${out.slice(-1500)}`)), 60000);
+      const onData = (b) => {
+        const s = b.toString();
+        out += s;
+        log(s.trimEnd());
+        const m = out.match(/Open:\s+(http:\/\/localhost:\d+)/);
+        if (m && !url) {
+          clearTimeout(timer);
+          url = m[1].replace("localhost", "127.0.0.1");
+          resolve(url);
+        }
+      };
+      server.stdout.on("data", onData);
+      server.stderr.on("data", onData);
+      server.on("exit", (code) => {
+        clearTimeout(timer);
+        log(`server exited (${code})`);
+        if (!url) reject(new Error(`The server stopped (code ${code}).\n\n${out.slice(-1500)}`));
+        else if (!quitting) {
+          dialog.showErrorBox("OpenWick stopped", `The background server stopped unexpectedly (code ${code}). Details are in:\n${logFile()}`);
+          app.quit();
+        }
+      });
+    });
+  }
+
+  // Remember the window's size and place between runs.
+  const boundsFile = path.join(user, "window.json");
+  const savedBounds = () => {
+    try { return JSON.parse(fs.readFileSync(boundsFile, "utf8")); } catch { return { width: 1440, height: 900 }; }
+  };
+  const saveBounds = () => {
+    if (!win || win.isDestroyed()) return;
+    try { fs.writeFileSync(boundsFile, JSON.stringify({ ...win.getNormalBounds(), maximized: win.isMaximized() })); } catch { /* not fatal */ }
+  };
+
+  const isLocal = (u) => typeof u === "string" && url && u.startsWith(url);
+
+  function createWindow() {
+    const b = savedBounds();
+    win = new BrowserWindow({
+      ...b,
+      minWidth: 900,
+      minHeight: 560,
+      title: "OpenWick",
+      backgroundColor: nativeTheme.shouldUseDarkColors ? "#050505" : "#ffffff",
+      icon: path.join(ROOT, "build", "icon.png"),
+      show: false,
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    if (b.maximized) win.maximize();
+    win.once("ready-to-show", () => win.show());
+    win.on("close", saveBounds);
+    win.on("closed", () => { win = null; });
+    // Pages of the app open inside it; anything else (news, sources) opens in your browser.
+    win.webContents.setWindowOpenHandler(({ url: u }) => {
+      if (isLocal(u)) return { action: "allow", overrideBrowserWindowOptions: { autoHideMenuBar: true } };
+      if (/^https?:\/\//.test(u)) shell.openExternal(u);
+      return { action: "deny" };
+    });
+    win.webContents.on("will-navigate", (e, u) => {
+      if (isLocal(u)) return;
+      e.preventDefault();
+      if (/^https?:\/\//.test(u)) shell.openExternal(u);
+    });
+    win.loadURL(`${url}/chart`);
+  }
+
+  function about() {
+    dialog.showMessageBox(win, {
+      type: "info",
+      title: "About OpenWick",
+      message: `OpenWick ${pkg.version}`,
+      detail:
+        `Created by ${CREATOR} and the OpenWick contributors.\n` +
+        "Open source under the MIT licence. Built on Quant Terminal by Lewis Jackson.\n" +
+        "Charts drawn with TradingView's Lightweight Charts™ (Apache 2.0).\n\n" +
+        "Nothing in this app is investment advice.\n\n" +
+        `Your data: ${user}`,
+      buttons: ["OK", "Open data folder"],
+    }).then(({ response }) => response === 1 && shell.openPath(user));
+  }
+
+  // Compare "1.2.3" style versions.
+  const newer = (a, b) => {
+    const x = a.split(".").map(Number), y = b.split(".").map(Number);
+    for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+    return false;
+  };
+  // Looks at the project's latest GitHub release. It never downloads or installs anything by
+  // itself: if there's a newer version it offers to open the download page.
+  async function checkForUpdates(quiet) {
+    if (REPO.startsWith("OWNER/")) {
+      if (!quiet) dialog.showMessageBox(win, { message: "Update checks start once the project is published on GitHub." });
+      return;
+    }
+    try {
+      const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { "User-Agent": "OpenWick-desktop", Accept: "application/vnd.github+json" } });
+      if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
+      const rel = await r.json();
+      const latest = String(rel.tag_name || "").replace(/^v/, "");
+      if (latest && newer(latest, pkg.version)) {
+        const { response } = await dialog.showMessageBox(win, {
+          type: "info",
+          message: `OpenWick ${latest} is available`,
+          detail: `You have ${pkg.version}. Download the new version and install it over this one; your charts and settings are kept.`,
+          buttons: ["Download", "Later"],
+        });
+        if (response === 0) shell.openExternal(rel.html_url);
+      } else if (!quiet) {
+        dialog.showMessageBox(win, { message: "You have the latest version.", detail: `OpenWick ${pkg.version}` });
+      }
+    } catch (e) {
+      log(`update check: ${e.message}`);
+      if (!quiet) dialog.showMessageBox(win, { type: "warning", message: "Couldn't check for updates.", detail: e.message });
+    }
+  }
+
+  function buildMenu() {
+    const mac = process.platform === "darwin";
+    const go = (p) => () => win && win.loadURL(`${url}${p}`);
+    const helpItems = [
+      { label: "About OpenWick", click: about },
+      { label: "Check for updates…", click: () => checkForUpdates(false) },
+      { type: "separator" },
+      { label: "Open data folder", click: () => shell.openPath(user) },
+      { label: "Open in browser", click: () => shell.openExternal(`${url}/chart`) },
+      ...(REPO.startsWith("OWNER/") ? [] : [{ label: "Project on GitHub", click: () => shell.openExternal(`https://github.com/${REPO}`) }]),
+    ];
+    Menu.setApplicationMenu(Menu.buildFromTemplate([
+      ...(mac ? [{ label: "OpenWick", submenu: [{ label: "About OpenWick", click: about }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] }] : []),
+      { label: "File", submenu: [{ label: "Home", click: go("/") }, { label: "Chart", accelerator: "CmdOrCtrl+Shift+C", click: go("/chart") }, { type: "separator" }, mac ? { role: "close" } : { role: "quit" }] },
+      { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
+      { label: "View", submenu: [{ role: "reload" }, { role: "togglefullscreen" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "toggleDevTools" }] },
+      { label: "Help", submenu: helpItems },
+    ]));
+  }
+
+  app.on("second-instance", () => {
+    if (!win) return createWindow();
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
+
+  app.whenReady().then(async () => {
+    try {
+      await firstRun();
+      url = await findRunning();
+      if (url) {
+        log(`using the OpenWick already running at ${url}`);
+        watchBorrowed();
+      } else await startServer();
+    } catch (e) {
+      log(e.stack || e.message);
+      dialog.showErrorBox("OpenWick couldn't start", `${e.message}\n\nDetails: ${logFile()}`);
+      return app.quit();
+    }
+    buildMenu();
+    createWindow();
+    // Quietly, a few seconds after start: tell the user only if there's something new.
+    setTimeout(() => checkForUpdates(true), 8000);
+    app.on("activate", () => { if (!win) createWindow(); });
+  });
+
+  // Closing the window quits (on a Mac it stays in the Dock, as Mac apps do).
+  app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+  app.on("before-quit", () => {
+    quitting = true;
+    if (server && server.exitCode === null) server.kill();
+  });
+}

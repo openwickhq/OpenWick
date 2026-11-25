@@ -1,0 +1,30 @@
+OpenWick
+Created and published by Sourav Chakraborty, founder of the project.
+Copyright (c) 2026 The OpenWick Authors (see AUTHORS). MIT licence (see LICENSE).
+
+OpenWick is built on Quant Terminal, Copyright (c) 2026 Lewis Jackson, released under the MIT
+licence. Thanks to them for the base this project grew from. Their copyright notice and licence
+are kept in LICENSE, as the MIT licence requires.
+
+This product includes TradingView Lightweight Charts(TM)
+(public/vendor/lightweight-charts.standalone.production.js),
+Copyright (c) 2026 TradingView, Inc., licensed under the Apache License 2.0
+(public/vendor/lightweight-charts.LICENSE). https://www.tradingview.com/
+The chart's on-screen attribution logo is switched off; the library is credited
+here and in the chart's Settings dialog instead.
+
+OpenWick is an independent project. It is not affiliated with, endorsed by,
+or connected to TradingView, Inc. "TradingView" is a trademark of TradingView, Inc.
+
+Market data comes from public endpoints of Binance, Coinbase, Kraken, Nasdaq,
+Yahoo Finance and Forex Factory, each under its own terms. Use it for your own
+personal analysis. Nothing in this software is financial advice.
+
+The home page photo (public/img/hero-*.jpg) is "Dülmen, Kirchspiel, Neusträßer Bruch
+-- 2021 -- 9364" by Dietmar Rabich, from Wikimedia Commons, licensed CC BY-SA 4.0
+(https://creativecommons.org/licenses/by-sa/4.0/). It has been cropped, resized, and
+darkened (hero-*.jpg, dark theme) or lightened and desaturated (hero-light-*.jpg, light theme);
+those edited copies are shared under the same licence.
+
+Company and coin logos (downloaded into data/logos/ by scripts/update-logos.js)
+belong to their owners and are shown only to identify each company or coin.

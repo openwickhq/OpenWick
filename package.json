@@ -1,0 +1,34 @@
+{
+  "name": "openwick",
+  "version": "0.1.0",
+  "description": "OpenWick: a private, local trading terminal.",
+  "author": "Sourav Chakraborty",
+  "license": "MIT",
+  "homepage": "https://github.com/openwickhq/openwick",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openwickhq/openwick.git"
+  },
+  "bugs": "https://github.com/openwickhq/openwick/issues",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js --open",
+    "serve": "node server.js",
+    "test": "node --test test/indicators.test.js test/reference.test.js test/providers.test.js test/feeds.test.js test/series.test.js test/backtest.test.js test/server.test.js test/imports.test.js test/quant.test.js test/market-info.test.js test/drawings.test.js test/resize.test.js",
+    "test:live": "node --test test/live.test.js",
+    "doctor": "node scripts/doctor.js",
+    "compare": "node scripts/compare.js",
+    "smoke": "node scripts/smoke.js",
+    "check": "node scripts/check.js",
+    "launch": "node scripts/launch.js",
+    "stop": "node scripts/stop.js",
+    "setup": "node scripts/setup.js",
+    "desktop": "npx --yes electron@45.5.0 .",
+    "desktop:build": "npx --yes electron-builder@26.18.0 --config electron-builder.yml"
+  }
+}

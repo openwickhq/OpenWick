@@ -1,0 +1,16 @@
+name: Feature idea
+description: Suggest something new
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The thing you're trying to do, and why the app makes it hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How you picture it working. A sketch or screenshot is welcome.
