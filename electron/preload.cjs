@@ -6,4 +6,6 @@ contextBridge.exposeInMainWorld("openwickDesktop", {
   about: () => ipcRenderer.invoke("ow:about"),
   checkForUpdates: () => ipcRenderer.invoke("ow:updates"),
   openDataFolder: () => ipcRenderer.invoke("ow:data-folder"),
+  getZoom: () => ipcRenderer.invoke("ow:get-zoom"),
+  setZoom: (v) => ipcRenderer.invoke("ow:set-zoom", v),
 });

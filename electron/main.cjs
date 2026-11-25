@@ -8,7 +8,7 @@
 // If OpenWick is already running on that folder (started with the `openwick` command), the
 // window uses that server instead of starting a second one that would overwrite its saves.
 // Run it from a source copy with `npm run desktop`.
-const { app, BrowserWindow, Menu, dialog, shell, nativeTheme, ipcMain } = require("electron");
+const { app, BrowserWindow, Menu, dialog, shell, nativeTheme, ipcMain, screen } = require("electron");
 const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 const fs = require("node:fs");
@@ -112,8 +112,50 @@ if (!app.requestSingleInstanceLock()) {
 
   // Remember the window's size and place between runs.
   const boundsFile = path.join(user, "window.json");
+  // First run: 90% of the screen, centred. After that, wherever you left it.
   const savedBounds = () => {
-    try { return JSON.parse(fs.readFileSync(boundsFile, "utf8")); } catch { return { width: 1440, height: 900 }; }
+    try { return JSON.parse(fs.readFileSync(boundsFile, "utf8")); } catch { /* first run */ }
+    const a = screen.getPrimaryDisplay().workArea;
+    const width = Math.round(a.width * 0.9), height = Math.round(a.height * 0.9);
+    return { width, height, x: a.x + Math.round((a.width - width) / 2), y: a.y + Math.round((a.height - height) / 2) };
+  };
+
+  // ---------- Interface size ----------
+  // "auto" scales everything to the screen the window is on, as the bigger the screen, the
+  // smaller things look: about 100% on a laptop, 110% on a 1080p monitor, 125% on 1440p and
+  // 150% on 4K (measured after Windows' or macOS's own display scaling). You can pick a fixed
+  // size in Settings → General, or with Ctrl + and Ctrl −; Ctrl 0 goes back to auto.
+  const prefsFile = path.join(user, "desktop.json");
+  const prefs = (() => { try { return JSON.parse(fs.readFileSync(prefsFile, "utf8")); } catch { return {}; } })();
+  const savePrefs = () => { try { fs.writeFileSync(prefsFile, JSON.stringify(prefs)); } catch { /* not fatal */ } };
+  const SIZES = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
+  const autoZoom = () => {
+    const d = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+    const h = d.workAreaSize.height + 60; // the taskbar or Dock isn't part of the work area
+    const pts = [[900, 1], [1080, 1.1], [1440, 1.25], [2160, 1.5], [2880, 1.75]];
+    if (h <= pts[0][0]) return 1;
+    for (let i = 1; i < pts.length; i++) {
+      const [h0, z0] = pts[i - 1], [h1, z1] = pts[i];
+      if (h <= h1) return Math.round((z0 + ((h - h0) / (h1 - h0)) * (z1 - z0)) * 20) / 20;
+    }
+    return 1.75;
+  };
+  const zoomSetting = () => (typeof prefs.zoom === "number" ? prefs.zoom : "auto");
+  const currentZoom = () => (zoomSetting() === "auto" ? autoZoom() : prefs.zoom);
+  const applyZoom = () => {
+    if (win && !win.isDestroyed()) win.webContents.setZoomFactor(currentZoom());
+  };
+  const setZoom = (v) => {
+    if (v === "auto") delete prefs.zoom;
+    else prefs.zoom = Math.max(0.5, Math.min(3, Number(v) || 1));
+    savePrefs();
+    applyZoom();
+    return { setting: zoomSetting(), factor: currentZoom() };
+  };
+  const stepZoom = (dir) => {
+    const cur = currentZoom();
+    const next = dir > 0 ? SIZES.find((z) => z > cur + 0.001) : [...SIZES].reverse().find((z) => z < cur - 0.001);
+    if (next) setZoom(next);
   };
   const saveBounds = () => {
     if (!win || win.isDestroyed()) return;
@@ -137,6 +179,11 @@ if (!app.requestSingleInstanceLock()) {
     });
     if (b.maximized) win.maximize();
     win.setMenuBarVisibility(false);
+    // Size the interface for this screen, again after each page load, and when the window moves
+    // to another monitor.
+    win.webContents.on("did-finish-load", applyZoom);
+    let moveTimer = null;
+    win.on("moved", () => { clearTimeout(moveTimer); moveTimer = setTimeout(applyZoom, 300); });
     // No menu bar on Windows and Linux, so the usual keys are handled here.
     win.webContents.on("before-input-event", (e, i) => {
       if (i.type !== "keyDown") return;
@@ -145,9 +192,9 @@ if (!app.requestSingleInstanceLock()) {
         i.key === "F11" ? () => win.setFullScreen(!win.isFullScreen())
         : i.key === "F5" || (mod && k === "r") ? () => win.webContents.reload()
         : mod && i.shift && k === "i" ? () => win.webContents.toggleDevTools()
-        : mod && (k === "=" || k === "+") ? () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5)
-        : mod && k === "-" ? () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5)
-        : mod && k === "0" ? () => win.webContents.setZoomLevel(0)
+        : mod && (k === "=" || k === "+") ? () => stepZoom(1)
+        : mod && k === "-" ? () => stepZoom(-1)
+        : mod && k === "0" ? () => setZoom("auto")
         : null;
       if (act) { e.preventDefault(); act(); }
     });
@@ -234,6 +281,8 @@ if (!app.requestSingleInstanceLock()) {
     ]));
   }
   ipcMain.handle("ow:about", () => about());
+  ipcMain.handle("ow:get-zoom", () => ({ setting: zoomSetting(), factor: currentZoom(), auto: autoZoom() }));
+  ipcMain.handle("ow:set-zoom", (_e, v) => setZoom(v));
   ipcMain.handle("ow:updates", () => checkForUpdates(false));
   ipcMain.handle("ow:data-folder", () => shell.openPath(user));
 
@@ -258,6 +307,9 @@ if (!app.requestSingleInstanceLock()) {
     }
     buildMenu();
     createWindow();
+    screen.on("display-metrics-changed", applyZoom);
+    screen.on("display-added", applyZoom);
+    screen.on("display-removed", applyZoom);
     // Quietly, a few seconds after start: tell the user only if there's something new.
     setTimeout(() => checkForUpdates(true), 8000);
     app.on("activate", () => { if (!win) createWindow(); });
