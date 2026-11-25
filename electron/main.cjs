@@ -8,7 +8,7 @@
 // If OpenWick is already running on that folder (started with the `openwick` command), the
 // window uses that server instead of starting a second one that would overwrite its saves.
 // Run it from a source copy with `npm run desktop`.
-const { app, BrowserWindow, Menu, dialog, shell, nativeTheme } = require("electron");
+const { app, BrowserWindow, Menu, dialog, shell, nativeTheme, ipcMain } = require("electron");
 const { spawn } = require("node:child_process");
 const { pathToFileURL } = require("node:url");
 const fs = require("node:fs");
@@ -132,9 +132,25 @@ if (!app.requestSingleInstanceLock()) {
       backgroundColor: nativeTheme.shouldUseDarkColors ? "#050505" : "#ffffff",
       icon: path.join(ROOT, "build", "icon.png"),
       show: false,
-      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+      autoHideMenuBar: true,
+      webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, "preload.cjs") },
     });
     if (b.maximized) win.maximize();
+    win.setMenuBarVisibility(false);
+    // No menu bar on Windows and Linux, so the usual keys are handled here.
+    win.webContents.on("before-input-event", (e, i) => {
+      if (i.type !== "keyDown") return;
+      const mod = i.control || i.meta, k = i.key.toLowerCase();
+      const act =
+        i.key === "F11" ? () => win.setFullScreen(!win.isFullScreen())
+        : i.key === "F5" || (mod && k === "r") ? () => win.webContents.reload()
+        : mod && i.shift && k === "i" ? () => win.webContents.toggleDevTools()
+        : mod && (k === "=" || k === "+") ? () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5)
+        : mod && k === "-" ? () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5)
+        : mod && k === "0" ? () => win.webContents.setZoomLevel(0)
+        : null;
+      if (act) { e.preventDefault(); act(); }
+    });
     win.once("ready-to-show", () => win.show());
     win.on("close", saveBounds);
     win.on("closed", () => { win = null; });
@@ -182,6 +198,10 @@ if (!app.requestSingleInstanceLock()) {
     }
     try {
       const r = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, { headers: { "User-Agent": "OpenWick-desktop", Accept: "application/vnd.github+json" } });
+      if (r.status === 404) {
+        if (!quiet) dialog.showMessageBox(win, { message: "No release has been published yet.", detail: `You have OpenWick ${pkg.version}.` });
+        return;
+      }
       if (!r.ok) throw new Error(`GitHub answered ${r.status}`);
       const rel = await r.json();
       const latest = String(rel.tag_name || "").replace(/^v/, "");
@@ -202,25 +222,20 @@ if (!app.requestSingleInstanceLock()) {
     }
   }
 
+  // Windows and Linux: no menu bar (the desktop actions are in Settings → General). A Mac app keeps
+  // the standard menu at the top of the screen, which is where Mac users expect Quit, Copy and Paste.
   function buildMenu() {
-    const mac = process.platform === "darwin";
-    const go = (p) => () => win && win.loadURL(`${url}${p}`);
-    const helpItems = [
-      { label: "About OpenWick", click: about },
-      { label: "Check for updates…", click: () => checkForUpdates(false) },
-      { type: "separator" },
-      { label: "Open data folder", click: () => shell.openPath(user) },
-      { label: "Open in browser", click: () => shell.openExternal(`${url}/chart`) },
-      ...(REPO.startsWith("OWNER/") ? [] : [{ label: "Project on GitHub", click: () => shell.openExternal(`https://github.com/${REPO}`) }]),
-    ];
+    if (process.platform !== "darwin") return Menu.setApplicationMenu(null);
     Menu.setApplicationMenu(Menu.buildFromTemplate([
-      ...(mac ? [{ label: "OpenWick", submenu: [{ label: "About OpenWick", click: about }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] }] : []),
-      { label: "File", submenu: [{ label: "Home", click: go("/") }, { label: "Chart", accelerator: "CmdOrCtrl+Shift+C", click: go("/chart") }, { type: "separator" }, mac ? { role: "close" } : { role: "quit" }] },
+      { label: "OpenWick", submenu: [{ label: "About OpenWick", click: about }, { label: "Check for updates…", click: () => checkForUpdates(false) }, { type: "separator" }, { role: "hide" }, { role: "hideOthers" }, { role: "unhide" }, { type: "separator" }, { role: "quit" }] },
       { label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
-      { label: "View", submenu: [{ role: "reload" }, { role: "togglefullscreen" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }, { type: "separator" }, { role: "toggleDevTools" }] },
-      { label: "Help", submenu: helpItems },
+      { label: "View", submenu: [{ role: "reload" }, { role: "togglefullscreen" }, { type: "separator" }, { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" }] },
+      { role: "windowMenu" },
     ]));
   }
+  ipcMain.handle("ow:about", () => about());
+  ipcMain.handle("ow:updates", () => checkForUpdates(false));
+  ipcMain.handle("ow:data-folder", () => shell.openPath(user));
 
   app.on("second-instance", () => {
     if (!win) return createWindow();

@@ -1701,3 +1701,4 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 /* The buttons that open them: same weight and the same arrow. */
 .topbar .view-btn { font-weight: 400; }
 .topbar .tb .caret { width: 14px; height: 14px; opacity: 0.6; }
+.st-desk { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
