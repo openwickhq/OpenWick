@@ -24,6 +24,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(APP, "package.json"), "utf8"));
 // An installed copy keeps your data in the folder it shares with the desktop app (lib/user-dirs.js).
 // The first run after an update moves over what the older version kept inside the app folder.
 const installed = fs.existsSync(path.join(HOME, ".openwick-install")) && path.resolve(path.join(HOME, "app")) === path.resolve(APP);
+if (installed) process.env.OPENWICK_HOME ||= HOME; // so messages name the `openwick` command
 if (installed && !process.env.OW_DATA_DIR) {
   try {
     const { env } = prepareShared(APP, { oldData: path.join(APP, "data"), oldCustom: path.join(APP, "custom") });
@@ -114,7 +115,8 @@ switch (cmd) {
       console.log("Your data was deleted too.");
     } else console.log(`Your charts and settings stay in ${path.dirname(DATA)} (shared with the desktop app). Delete that folder to remove them, or run: ${ID} uninstall --delete-data`);
     const shortcuts = win
-      ? [path.join(HOME, "bin"), path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", `${NAME}.lnk`), path.join(os.homedir(), "Desktop", `${NAME}.lnk`)]
+      // Not HOME\bin: openwick.cmd is still running from it. The clean-up script below removes HOME, bin included.
+      ? [path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", `${NAME}.lnk`), path.join(os.homedir(), "Desktop", `${NAME}.lnk`)]
       : [path.join(os.homedir(), ".local", "bin", ID), path.join(os.homedir(), ".local", "share", "applications", `${ID}.desktop`), path.join(os.homedir(), "Applications", `${NAME}.app`)];
     for (const f of shortcuts) fs.rmSync(f, { recursive: true, force: true });
     // Windows can't delete the running node.exe's folder from inside it, so a short script finishes the job.
