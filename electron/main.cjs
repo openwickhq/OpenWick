@@ -16,6 +16,7 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const pkg = require(path.join(ROOT, "package.json"));
+const { autoScale, SIZES } = require("./scale.cjs");
 const REPO = "openwickhq/OpenWick"; // set by scripts/set-repo.js when publishing
 const CREATOR = "Sourav Chakraborty";
 const PORT = 3787; // its own port, so it doesn't clash with a copy started from the terminal
@@ -65,7 +66,7 @@ if (!app.requestSingleInstanceLock()) {
         url = null;
         try {
           await startServer();
-          if (win) win.loadURL(`${url}/chart`);
+          if (win) win.loadURL(`${url}/`);
         } catch (e) {
           dialog.showErrorBox("OpenWick stopped", `${e.message}\n\nDetails: ${logFile()}`);
           app.quit();
@@ -121,24 +122,15 @@ if (!app.requestSingleInstanceLock()) {
   };
 
   // ---------- Interface size ----------
-  // "auto" scales everything to the screen the window is on, as the bigger the screen, the
-  // smaller things look: about 100% on a laptop, 110% on a 1080p monitor, 125% on 1440p and
-  // 150% on 4K (measured after Windows' or macOS's own display scaling). You can pick a fixed
-  // size in Settings → General, or with Ctrl + and Ctrl −; Ctrl 0 goes back to auto.
+  // "auto" scales everything to the screen the window is on (electron/scale.cjs): smaller on a
+  // small tablet, 100% on a laptop, up to 250% on an 8K monitor. You can pick a fixed size in
+  // Settings → General, or with Ctrl + and Ctrl −; Ctrl 0 goes back to auto.
   const prefsFile = path.join(user, "desktop.json");
   const prefs = (() => { try { return JSON.parse(fs.readFileSync(prefsFile, "utf8")); } catch { return {}; } })();
   const savePrefs = () => { try { fs.writeFileSync(prefsFile, JSON.stringify(prefs)); } catch { /* not fatal */ } };
-  const SIZES = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2];
   const autoZoom = () => {
     const d = win ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
-    const h = d.workAreaSize.height + 60; // the taskbar or Dock isn't part of the work area
-    const pts = [[900, 1], [1080, 1.1], [1440, 1.25], [2160, 1.5], [2880, 1.75]];
-    if (h <= pts[0][0]) return 1;
-    for (let i = 1; i < pts.length; i++) {
-      const [h0, z0] = pts[i - 1], [h1, z1] = pts[i];
-      if (h <= h1) return Math.round((z0 + ((h - h0) / (h1 - h0)) * (z1 - z0)) * 20) / 20;
-    }
-    return 1.75;
+    return autoScale(d.size.width, d.size.height);
   };
   const zoomSetting = () => (typeof prefs.zoom === "number" ? prefs.zoom : "auto");
   const currentZoom = () => (zoomSetting() === "auto" ? autoZoom() : prefs.zoom);
@@ -212,7 +204,7 @@ if (!app.requestSingleInstanceLock()) {
       e.preventDefault();
       if (/^https?:\/\//.test(u)) shell.openExternal(u);
     });
-    win.loadURL(`${url}/chart`);
+    win.loadURL(`${url}/`); // the home page first, like the website
   }
 
   function about() {

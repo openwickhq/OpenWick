@@ -289,3 +289,23 @@ test('shared data folder: first run copies an older install and the example indi
   assert.equal(fs.readFileSync(path.join(env.OW_DATA_DIR, 'state.json'), 'utf8'), '{"new":1}');
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+test('desktop app: interface size for each kind of screen', async () => {
+  const { createRequire } = await import('node:module');
+  const { autoScale } = createRequire(import.meta.url)('../electron/scale.cjs');
+  const cases = [
+    ['small tablet 1024x768', 1024, 768, 0.9],
+    ['tablet 1280x800', 1280, 800, 0.95],
+    ['laptop 1440x900', 1440, 900, 1],
+    ['1080p', 1920, 1080, 1.1],
+    ['1440p', 2560, 1440, 1.25],
+    ['ultrawide 3440x1440', 3440, 1440, 1.25],
+    ['4K at 100%', 3840, 2160, 1.5],
+    ['4K at 150% scaling', 2560, 1440, 1.25],
+    ['5K', 5120, 2880, 1.75],
+    ['8K', 7680, 4320, 2.5],
+    ['portrait 1080x1920', 1080, 1920, 0.9],
+  ];
+  for (const [name, w, h, want] of cases) assert.equal(autoScale(w, h), want, name);
+  assert.ok(autoScale(15360, 8640) <= 3);
+});
