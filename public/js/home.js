@@ -4,7 +4,7 @@ import { $, chartUrl, pageUrl, cls, mountSite, onThemeChange, wireSearch, ago, b
 import { breadthHtml } from "./breadth.js";
 
 await mountSite("home");
-onThemeChange(() => (drawTiles(), drawWatchlist()));
+onThemeChange(() => drawTiles());
 wireSearch($("#heroQ"), $("#heroResults"));
 $("#chips").innerHTML = [
   ["NIFTY 50", "NIFTY"], ["BANK NIFTY", "BANKNIFTY"], ["SENSEX", "SENSEX"], ["RELIANCE", "RELIANCE"],
@@ -55,39 +55,35 @@ async function loadTiles() {
   drawTiles();
 }
 
-// ---------- your watchlist, as cards ----------
-// One card per symbol of a watchlist: price, today's move, a 30-day line, and a background tinted
-// by how far it moved. The switch above picks the list (remembered on this computer only, so the
-// chart page keeps its own).
-const WL_MAX = 24;
-const wl = { lists: {}, name: null, quotes: {}, spark: {} };
-const shownSymbols = () => (wl.lists[wl.name] || []).filter((s) => !s.startsWith("###")).slice(0, WL_MAX);
+// ---------- your watchlist, as a compact list ----------
+// Slim rows (logo, name, price, today's move as a pill) flowing into columns. Folded it shows the
+// first few; "Show all" opens the whole list in place, scrolling inside its box when it's long.
+// The switch picks the list (remembered on this computer only, so the chart page keeps its own).
+const WL_FOLDED = 9;
+const wl = { lists: {}, name: null, quotes: {}, open: false };
+const allSymbols = () => (wl.lists[wl.name] || []).filter((s) => !s.startsWith("###"));
+const shownSymbols = () => (wl.open ? allSymbols() : allSymbols().slice(0, WL_FOLDED));
 function drawWatchlist() {
   const names = Object.keys(wl.lists);
   $("#wlLists").innerHTML = names.length > 1 ? names.map((n) => `<button data-l="${esc(n)}" class="${n === wl.name ? "active" : ""}">${esc(n)}</button>`).join("") : "";
-  const all = (wl.lists[wl.name] || []).filter((s) => !s.startsWith("###"));
-  const syms = shownSymbols();
-  if (!syms.length) {
+  const all = allSymbols(), syms = shownSymbols();
+  if (!all.length) {
     $("#wlSum").textContent = "";
-    $("#wlCards").innerHTML = `<div class="wl-empty">Nothing here yet. Tap the star on any stock, index or coin to add it, and it shows up here.</div>`;
+    $("#wlRows").innerHTML = `<div class="hw-empty">Nothing here yet. Tap the star on any stock, index or coin to add it, and it shows up here.</div>`;
+    $("#wlMore").innerHTML = "";
     return;
   }
-  const moves = syms.map((s) => wl.quotes[s]?.changePct).filter((v) => v != null);
+  const moves = all.map((s) => wl.quotes[s]?.changePct).filter((v) => v != null);
   const up = moves.filter((v) => v > 0).length, down = moves.filter((v) => v < 0).length;
-  $("#wlSum").textContent = `${wl.name} · ${up} up · ${down} down${all.length > syms.length ? ` · first ${syms.length} of ${all.length}` : ""}`;
-  $("#wlCards").innerHTML = syms.map((s) => {
+  $("#wlSum").textContent = `${all.length} symbol${all.length === 1 ? "" : "s"}${moves.length ? ` · ${up} up · ${down} down` : ""}`;
+  $("#wlRows").classList.toggle("open", wl.open);
+  $("#wlRows").innerHTML = syms.map((s) => {
     const q = wl.quotes[s] || {};
-    const pct = q.changePct;
-    const closes = wl.spark[s];
-    const isUp = pct != null ? pct >= 0 : closes ? closes.at(-1) >= closes[0] : true;
-    const tint = pct == null ? 0 : Math.min(22, 4 + Math.abs(pct) * 5);
     const label = q.label || s.split(":").pop().replace(/\.(NS|BO)$/, "");
-    return `<a class="wl-card" href="${esc(pageUrl(s))}" style="--tint:${tint}%;--tc:var(${isUp ? "--up" : "--down"})">
-      <div class="wl-c-top">${badge(s, label)}<span class="wl-c-name"><b>${esc(label)}</b><small>${esc(q.title && q.title !== label ? q.title : q.market || "")}</small></span></div>
-      <div class="wl-c-mid"><span class="wl-c-px">${fmtPrice(q.price ?? closes?.at(-1))}</span><span class="wl-c-ch ${cls(pct)}">${fmtPct(pct)}</span></div>
-      ${sparkSvg(closes, isUp)}
-    </a>`;
+    const sub = q.title && q.title !== label ? q.title : q.market || "";
+    return `<a class="hw-row" href="${esc(pageUrl(s))}">${badge(s, label)}<span class="hw-name"><b>${esc(label)}</b><small>${esc(sub)}</small></span><span class="hw-px">${fmtPrice(q.price)}</span><span class="hw-ch ${cls(q.changePct)}">${fmtPct(q.changePct)}</span></a>`;
   }).join("");
+  $("#wlMore").innerHTML = all.length > WL_FOLDED ? `<button class="hw-toggle">${wl.open ? "Show less" : `Show all ${all.length}`}</button>` : "";
 }
 async function loadWatchlist() {
   try {
@@ -98,30 +94,31 @@ async function loadWatchlist() {
   } catch {
     wl.lists = {};
   }
-  await refreshWatchlist(true);
+  await refreshWatchlist();
 }
-async function refreshWatchlist(withLines) {
-  const syms = shownSymbols();
+// Prices for every symbol of the list (one request, up to 600), so the up / down count covers all.
+async function refreshWatchlist() {
   drawWatchlist();
+  const syms = allSymbols();
   if (!syms.length) return;
   try {
-    Object.assign(wl.quotes, await api.quotes(syms));
+    Object.assign(wl.quotes, await api.quotes(syms.slice(0, 600)));
     drawWatchlist();
   } catch { /* keep the last prices */ }
-  if (!withLines) return;
-  await Promise.all(syms.filter((s) => !wl.spark[s]).map(async (s) => {
-    try {
-      wl.spark[s] = (await api.candles(s, "1D", 30)).candles.map((c) => c.close);
-    } catch { /* no line */ }
-  }));
-  drawWatchlist();
 }
 $("#wlLists").onclick = (e) => {
   const n = e.target.closest("[data-l]")?.dataset.l;
   if (!n || n === wl.name) return;
   wl.name = n;
+  wl.open = false;
   localStorage.setItem("ow.homeWatchlist", n);
-  refreshWatchlist(true);
+  refreshWatchlist();
+};
+$("#wlMore").onclick = (e) => {
+  if (!e.target.closest(".hw-toggle")) return;
+  wl.open = !wl.open;
+  drawWatchlist();
+  if (!wl.open) $("#wlBlock").scrollIntoView({ block: "nearest" });
 };
 
 // ---------- lists ----------
@@ -211,7 +208,7 @@ setInterval(async () => {
     tileQuotes = await api.quotes(TILES.map((t) => t[1]));
     drawTiles();
   } catch { /* keep the last prices */ }
-  refreshWatchlist(false);
+  refreshWatchlist();
 }, 15000);
 
 // The top bar sits on the photo with no background of its own until the page scrolls past the photo.
