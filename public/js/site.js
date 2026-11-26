@@ -163,43 +163,17 @@ export async function openWatchMenu(sym, x, y) {
   }, { once: true }));
 }
 
-// The top bar's hover: one soft highlight that glides to whichever link the pointer is on and fades
-// out when it leaves the links, instead of each link lighting up on its own.
-function glideNav(nav) {
-  const glide = nav?.querySelector(".h-glide");
-  if (!glide) return;
-  const moveTo = (a) => {
-    glide.style.width = `${a.offsetWidth}px`;
-    glide.style.transform = `translateX(${a.offsetLeft}px)`;
-  };
-  nav.addEventListener("mouseover", (e) => {
-    const a = e.target.closest("a");
-    if (!a) return;
-    if (!glide.classList.contains("on")) {
-      // Appear in place under the first link reached, then glide from there.
-      glide.classList.add("jump");
-      moveTo(a);
-      glide.offsetWidth;
-      glide.classList.remove("jump");
-    }
-    moveTo(a);
-    glide.classList.add("on");
-  });
-  nav.addEventListener("mouseleave", () => glide.classList.remove("on"));
-}
-
 // Fills <header class="h-nav"> and applies the saved theme. `active` names the current page.
 export async function mountSite(active) {
   const header = $("header.h-nav");
   header.innerHTML = `<a class="h-brand" href="/">${LOGO}<span>OpenWick</span></a>
     <div class="h-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg><input id="navQ" placeholder="Search (Ctrl+K)" autocomplete="off" /><div class="h-results" id="navResults"></div></div>
-    <nav class="h-links"><span class="h-glide" aria-hidden="true"></span>${LINKS.map(([k, href, label]) => `<a href="${href}" class="${k === active ? "active" : ""}">${label}</a>`).join("")}</nav>
+    <nav class="h-links">${LINKS.map(([k, href, label]) => `<a href="${href}" class="${k === active ? "active" : ""}">${label}</a>`).join("")}</nav>
     <span class="spacer"></span>
     <a class="h-icon ${active === "notes" ? "active" : ""}" href="/notes" title="Notes" aria-label="Notes">${NOTES_ICON}</a>
     <button class="h-icon" id="themeBtn" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg></button>
     <a class="h-btn" href="/chart">Charts</a>`;
   wireSearch($("#navQ"), $("#navResults"));
-  glideNav(header.querySelector(".h-links"));
   // Star buttons anywhere on the page (captured first, so a star inside a link or row only opens the menu).
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-watch]");
