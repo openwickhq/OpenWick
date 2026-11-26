@@ -1,6 +1,7 @@
 // OpenWick home page: search, market summary tiles, Indian and crypto movers, news, calendar.
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, chartUrl, pageUrl, cls, mountSite, onThemeChange, wireSearch, ago } from "./site.js";
+import { breadthHtml } from "./breadth.js";
 
 await mountSite("home");
 onThemeChange(() => drawTiles());
@@ -64,7 +65,7 @@ async function loadIndia() {
   skeleton(["#nseUp", "#nseDown", "#sectors"]);
   try {
     const all = await api.get("/api/screener?universe=nse");
-    drawBreadth(all);
+    $("#breadth").innerHTML = breadthHtml(all);
     const rows = all.filter((r) => r.changePct != null && r.price != null);
     const sorted = [...rows].sort((a, b) => b.changePct - a.changePct);
     $("#nseUp").innerHTML = sorted.slice(0, 8).map((r) => listRow(r.symbol, r.ticker, r.name, r.price, r.changePct)).join("") || empty("No prices yet.");
@@ -87,46 +88,6 @@ async function loadIndia() {
   } catch (e) {
     $("#sectors").innerHTML = empty(`Sector prices aren't loading right now (${e.message}).`);
   }
-}
-
-// How many NIFTY 500 stocks rose or fell today, how many sit at 52-week highs or lows, how many
-// are above their 50- and 200-day averages, and how each sector's stocks did.
-function drawBreadth(rows) {
-  const moved = rows.filter((r) => r.changePct != null);
-  if (!moved.length) return ($("#breadth").innerHTML = empty("No prices yet."));
-  const up = moved.filter((r) => r.changePct > 0.0001).length;
-  const down = moved.filter((r) => r.changePct < -0.0001).length;
-  const flat = moved.length - up - down;
-  const pct = (n, of) => (of ? Math.round((n / of) * 100) : 0);
-  const near = (k) => rows.filter((r) => r[k] != null && Math.abs(r[k]) <= 1).length; // within 1% of the 52-week high / low
-  const above = (k) => {
-    const have = rows.filter((r) => r[k] != null);
-    return { n: have.filter((r) => r[k] > 0).length, of: have.length };
-  };
-  const a50 = above("vsSma50"), a200 = above("vsSma200");
-  const big = (lbl, val, sub, c = "") => `<div class="b-stat"><div class="lbl">${lbl}</div><div class="val ${c}">${val}</div><div class="sub">${sub}</div></div>`;
-  const meter = (n, of, lbl) => `<div class="b-meter"><div class="lbl"><span>${lbl}</span><b>${pct(n, of)}%</b></div><div class="bar"><span style="width:${pct(n, of)}%"></span></div><div class="sub">${n} of ${of}</div></div>`;
-  // Sectors: the share of each sector's stocks that rose, biggest sectors first.
-  const by = {};
-  for (const r of moved) (by[r.sector || "Other"] ||= []).push(r);
-  const sectors = Object.entries(by)
-    .filter(([, l]) => l.length >= 4)
-    .map(([name, l]) => ({ name, n: l.length, up: l.filter((r) => r.changePct > 0).length, avg: l.reduce((a, r) => a + r.changePct, 0) / l.length }))
-    .sort((a, b) => b.avg - a.avg);
-  $("#breadth").innerHTML = `
-    <div class="b-top">
-      <div class="b-ad">
-        <div class="b-ad-row"><span class="up">${up} up</span><span class="muted">${flat} unchanged</span><span class="down">${down} down</span></div>
-        <div class="b-ad-bar"><span class="u" style="flex:${up}"></span><span class="f" style="flex:${flat}"></span><span class="d" style="flex:${down}"></span></div>
-        <div class="sub">Advance / decline ratio ${down ? (up / down).toFixed(2) : "—"} · ${moved.length} stocks priced</div>
-      </div>
-      ${big("At 52-week high", near("fromHigh"), "within 1% of the high", "up")}
-      ${big("At 52-week low", near("fromLow"), "within 1% of the low", "down")}
-      ${meter(a50.n, a50.of, "Above 50-day average")}
-      ${meter(a200.n, a200.of, "Above 200-day average")}
-    </div>
-    <h3>Sectors <small>share of stocks up today · average move</small></h3>
-    <div class="b-sectors">${sectors.map((s) => `<a href="/screener?sector=${encodeURIComponent(s.name)}" title="${esc(s.name)}: ${s.up} of ${s.n} up"><span class="nm">${esc(s.name)}</span><span class="bar"><span class="u" style="width:${pct(s.up, s.n)}%"></span></span><span class="cnt">${s.up}/${s.n}</span><span class="v ${cls(s.avg)}">${fmtPct(s.avg)}</span></a>`).join("")}</div>`;
 }
 
 async function loadCrypto() {

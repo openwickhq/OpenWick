@@ -1,0 +1,165 @@
+// Movers: every gainer and loser of the day in NIFTY 500 (or any index whose members we know),
+// and every sector, theme and market index sorted by today's move. The home page's short lists
+// open here with "See all".
+import { api, esc, fmtPrice, fmtPct } from "./api.js";
+import { $, cls, mountSite, pageUrl, badge, starButton, fmtCap } from "./site.js";
+import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions } from "./breadth.js";
+
+await mountSite("movers");
+
+const params = new URLSearchParams(location.search);
+const st = {
+  tab: ["gainers", "losers", "sectors"].includes(params.get("tab")) ? params.get("tab") : "gainers",
+  index: params.get("index") || "NIFTY-500",
+  group: ["sector", "broad", "strategy"].includes(params.get("group")) ? params.get("group") : "sector",
+  sort: null,
+  dir: -1,
+};
+let stocks = [], indices = [], members = [];
+
+const absChange = (r) => (r.price != null && r.changePct != null ? r.price - r.price / (1 + r.changePct / 100) : null);
+const fmtAbs = (v) => (v == null ? "—" : `${v >= 0 ? "+" : "−"}${fmtPrice(Math.abs(v))}`);
+
+function save() {
+  const q = new URLSearchParams({ tab: st.tab });
+  if (st.tab === "sectors") q.set("group", st.group);
+  else if (st.index !== "NIFTY-500") q.set("index", st.index);
+  history.replaceState(null, "", `/movers?${q}`);
+}
+
+function drawControls() {
+  for (const b of $("#tabs").children) b.classList.toggle("active", b.dataset.t === st.tab);
+  for (const b of $("#groups").children) b.classList.toggle("active", b.dataset.g === st.group);
+  $("#indexBox").classList.toggle("hidden", st.tab === "sectors");
+  $("#groups").classList.toggle("hidden", st.tab !== "sectors");
+  if (members.length && !$("#index").options.length) $("#index").innerHTML = indexOptions(members);
+  if ($("#index").options.length) $("#index").value = st.index;
+}
+
+const th = (k, l, c = "") => `<th data-k="${k}" class="${c} ${st.sort === k ? "sorted" : ""}">${esc(l)}${st.sort === k ? (st.dir < 0 ? " ↓" : " ↑") : ""}</th>`;
+function sortRows(rows, getters) {
+  const get = getters[st.sort];
+  if (!get) return rows;
+  return [...rows].sort((a, b) => {
+    const x = get(a), y = get(b);
+    if (x == null && y == null) return 0;
+    if (x == null) return 1;
+    if (y == null) return -1;
+    return (typeof x === "string" ? x.localeCompare(y) : x - y) * st.dir;
+  });
+}
+
+function drawStocks() {
+  const index = members.find((m) => slugOf(m.name) === st.index);
+  const label = index?.name || "NIFTY 500";
+  const inIndex = rowsOf(stocks, st.index === "NIFTY-500" ? null : index).filter((r) => r.changePct != null && r.price != null);
+  const gain = st.tab === "gainers";
+  const list = inIndex.filter((r) => (gain ? r.changePct > 0.0001 : r.changePct < -0.0001));
+  if (!st.sort) (st.sort = "changePct"), (st.dir = gain ? -1 : 1);
+  const getters = { ticker: (r) => r.ticker, sector: (r) => r.sector || "", price: (r) => r.price, abs: absChange, changePct: (r) => r.changePct, marketCap: (r) => r.marketCap, fromHigh: (r) => r.fromHigh, vsSma200: (r) => r.vsSma200 };
+  const rows = sortRows(list, getters);
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Stock", "l")}${th("sector", "Sector", "l")}${th("price", "Price")}${th("abs", "Change")}${th("changePct", "Change %")}${th("marketCap", "Market cap")}${th("fromHigh", "From 52W high")}${th("vsSma200", "vs 200-day avg")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
+    <td class="l muted">${i + 1}</td>
+    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small>${esc([r.name, r.capClass].filter(Boolean).join(" · "))}</small></span></a></div></td>
+    <td class="l muted">${esc(r.sector || "")}</td>
+    <td>${fmtPrice(r.price)}</td>
+    <td class="${cls(r.changePct)}">${fmtAbs(absChange(r))}</td>
+    <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
+    <td>${fmtCap(r.marketCap, true)}</td>
+    <td class="${cls(r.fromHigh)}">${fmtPct(r.fromHigh)}</td>
+    <td class="${cls(r.vsSma200)}">${fmtPct(r.vsSma200)}</td>
+  </tr>`).join("") || `<tr><td class="l muted" colspan="9">${stocks.length ? `No ${label} stock is ${gain ? "up" : "down"} today.` : "No prices yet."}</td></tr>`}</tbody>`;
+  $("#count").textContent = inIndex.length ? `${list.length} of ${inIndex.length} ${label} stocks ${gain ? "up" : "down"} today` : "";
+  $("#note").textContent = `Today's move from the previous close. Prices from Yahoo Finance; Indian prices can be delayed.${index && index.members.length > inIndex.length ? ` ${index.members.length - inIndex.length} of its ${index.members.length} stocks aren't in NIFTY 500, so they aren't shown.` : ""}`;
+}
+
+function drawIndices() {
+  const bySlug = new Map(members.map((m) => [slugOf(m.name), m]));
+  const list = indices.filter((r) => r.ticker !== "INDIA VIX" && groupOf(r.ticker) === st.group && r.changePct != null);
+  if (!st.sort) (st.sort = "changePct"), (st.dir = -1);
+  const breadth = new Map(list.map((r) => {
+    const m = bySlug.get(slugOf(r.ticker));
+    return [r.symbol, m ? breadthStats(rowsOf(stocks, m)) : null];
+  }));
+  const share = (r) => {
+    const b = breadth.get(r.symbol);
+    return b?.moved.length ? b.up / b.moved.length : null;
+  };
+  const getters = { ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, perfW: (r) => r.perfW, perfM: (r) => r.perfM, perfY: (r) => r.perfY, up: share };
+  const rows = sortRows(list, getters);
+  const max = Math.max(0.5, ...rows.map((r) => Math.abs(r.changePct)));
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="l mv-barh">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
+    const w = (Math.abs(r.changePct) / max) * 50;
+    const pos = r.changePct >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
+    const b = breadth.get(r.symbol);
+    return `<tr data-href="${esc(pageUrl(r.symbol))}">
+    <td class="l muted">${i + 1}</td>
+    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker.replace(/^(NIFTY|BSE) /, ""))}<span><b>${esc(r.ticker)}</b><small>${esc([r.sector, r.members ? `${r.members} stocks` : ""].filter(Boolean).join(" · "))}</small></span></a></div></td>
+    <td>${fmtPrice(r.price)}</td>
+    <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
+    <td class="l mv-bar"><span class="track"><span class="fill ${cls(r.changePct)}" style="${pos}"></span></span></td>
+    <td>${b?.moved.length ? `<a class="mv-up" href="/breadth?index=${slugOf(r.ticker)}" title="Breadth of ${esc(r.ticker)}">${b.up}/${b.moved.length}</a>` : '<span class="muted">—</span>'}</td>
+    <td class="${cls(r.perfW)}">${fmtPct(r.perfW)}</td>
+    <td class="${cls(r.perfM)}">${fmtPct(r.perfM)}</td>
+    <td class="${cls(r.perfY)}">${fmtPct(r.perfY)}</td>
+  </tr>`;
+  }).join("") || `<tr><td class="l muted" colspan="9">No index prices yet.</td></tr>`}</tbody>`;
+  $("#count").textContent = list.length ? `${list.filter((r) => r.changePct > 0).length} of ${list.length} up today` : "";
+  $("#note").textContent = "Stocks up: how many of the index's stocks rose today (for the indices whose members OpenWick knows); click it for the index's breadth.";
+}
+
+const draw = () => {
+  drawControls();
+  st.tab === "sectors" ? drawIndices() : drawStocks();
+};
+
+async function load() {
+  const [s, ix, m] = await Promise.allSettled([api.get("/api/screener?universe=nse"), api.get("/api/screener?universe=indices"), indexMembers()]);
+  if (s.status === "fulfilled") stocks = s.value;
+  if (ix.status === "fulfilled") indices = ix.value;
+  if (m.status === "fulfilled") members = m.value;
+  const failed = [s, ix].find((x) => x.status === "rejected");
+  if (failed && !stocks.length && !indices.length) {
+    $("#table").innerHTML = `<tbody><tr><td class="l muted">Indian prices aren't loading right now (${esc(failed.reason.message)}).</td></tr></tbody>`;
+    return;
+  }
+  draw();
+}
+
+$("#tabs").onclick = (e) => {
+  const t = e.target.closest("[data-t]")?.dataset.t;
+  if (!t || t === st.tab) return;
+  st.tab = t;
+  st.sort = null;
+  save();
+  draw();
+};
+$("#groups").onclick = (e) => {
+  const g = e.target.closest("[data-g]")?.dataset.g;
+  if (!g) return;
+  st.group = g;
+  save();
+  draw();
+};
+$("#index").onchange = (e) => {
+  st.index = e.target.value;
+  save();
+  draw();
+};
+$("#table").onclick = (e) => {
+  const k = e.target.closest("th")?.dataset.k;
+  if (k) {
+    st.dir = st.sort === k ? -st.dir : k === "ticker" || k === "sector" ? 1 : -1;
+    st.sort = k;
+    return draw();
+  }
+  if (e.target.closest("a, button")) return;
+  const href = e.target.closest("tr")?.dataset.href;
+  if (href) location.href = href;
+};
+
+drawControls();
+save();
+await load();
+// Fresh prices every minute while the page is in view.
+setInterval(() => !document.hidden && load(), 60e3);

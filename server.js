@@ -250,7 +250,7 @@ async function handle(req, res) {
       return res.end(f.body);
     }
     if (p === "/portfolio") return serveStatic(res, PUBLIC, "portfolio.html");
-    if (p === "/screener" || p === "/heatmap" || p === "/news")
+    if (p === "/screener" || p === "/heatmap" || p === "/news" || p === "/movers" || p === "/breadth")
       return serveStatic(res, PUBLIC, `${p.slice(1)}.html`);
     if (p === "/chart" || p === "/chart/" || p === "/index.html")
       return serveStatic(res, PUBLIC, "index.html");
@@ -292,6 +292,9 @@ async function handle(req, res) {
         200,
         await data.getCandles(q.symbol, q.tf || "1D", q.limit),
       );
+    // The indices whose member stocks we know (for breadth and movers within an index).
+    if (p === "/api/index-members")
+      return send(res, 200, INDICES.items.filter((x) => x.mem?.length).map((x) => ({ symbol: `YAHOO:${x.y}`, name: x.n, members: x.mem })));
     if (p === "/api/quotes")
       return send(
         res,

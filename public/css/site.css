@@ -218,6 +218,29 @@ table.sc .skeleton { height: 300px; }
 .b-sectors .cnt { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .b-sectors .v { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
+/* ---------- "See all" links, movers and breadth pages ---------- */
+.block-head .links { display: flex; gap: 20px; }
+.panel h3 a.more { float: right; font-size: 12.5px; font-weight: 500; color: var(--accent); text-decoration: none; }
+.panel h3 a.more:hover, .block-head .links a:hover, .pg-head .sc-count a:hover { text-decoration: underline; }
+.pg-head .sc-count a { color: var(--accent); text-decoration: none; }
+.pg-head .sc-count b { font-weight: 600; }
+.pg-head .sc-count b.up { color: var(--up); } .pg-head .sc-count b.down { color: var(--down); }
+table.sc td.mv-bar { width: 22%; min-width: 140px; }
+.mv-bar .track { display: block; position: relative; height: 8px; }
+.mv-bar .track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border); }
+.mv-bar .fill { position: absolute; top: 0; height: 8px; border-radius: 4px; }
+.mv-bar .fill.up { background: var(--up); } .mv-bar .fill.down { background: var(--down); }
+a.mv-up { color: var(--text); text-decoration: underline dotted; text-underline-offset: 3px; }
+.bd-all { margin: 30px 0 14px; align-items: center; }
+.bd-ad { display: flex; align-items: center; gap: 8px; min-width: 210px; font-variant-numeric: tabular-nums; }
+.bd-ad .b-ad-bar { flex: 1; height: 8px; }
+.bd-ad .up { color: var(--up); min-width: 26px; text-align: right; } .bd-ad .down { color: var(--down); min-width: 26px; }
+.bd-meter { display: inline-block; width: 56px; height: 6px; margin-right: 8px; vertical-align: middle; border-radius: 3px; background: var(--border); overflow: hidden; }
+.bd-meter span { display: block; height: 100%; background: var(--accent); }
+table.sc tbody tr.bd-sel td { background: var(--hover); }
+table.sc tbody tr.bd-sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.bd-miss { margin-top: 12px; }
+
 /* ---------- stock and index pages ---------- */
 .sp-head { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 28px; padding: 26px 0 10px; }
 .sp-id { display: flex; align-items: center; gap: 14px; min-width: 0; }

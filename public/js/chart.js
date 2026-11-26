@@ -1435,7 +1435,10 @@ export class ChartPane {
     if (document.hidden) return 30000;
     const crypto = ["BINANCE", "COINBASE", "KRAKEN", "BYBIT", "BLOFIN"].includes(exchange(this.cfg.symbol));
     let ms = crypto ? 3000 : 10000;
-    if (!crypto && exchange(this.cfg.symbol) === "YAHOO" && /^Yahoo/.test(this.provider || "") && nseOpen()) {
+    // A chart with no new candle for 30 minutes isn't trading (an NSE holiday): no need to hurry.
+    const last = this.bars.at(-1);
+    const moving = last && Date.now() / 1000 - (last.time + parseTf(this.cfg.tf).seconds) < 1800;
+    if (!crypto && moving && exchange(this.cfg.symbol) === "YAHOO" && /^Yahoo/.test(this.provider || "") && nseOpen()) {
       const panes = this.app.panes?.length || 1;
       ms = panes <= 2 || this.app.active === this ? 2500 : 5000;
     }

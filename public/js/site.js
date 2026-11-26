@@ -20,6 +20,8 @@ const LOGO = `<img src="/img/logo.svg" width="30" height="30" alt="" />`;
 const LINKS = [
   ["screener", "/screener", "Screener"],
   ["heatmap", "/heatmap", "Heatmap"],
+  ["movers", "/movers", "Movers"],
+  ["breadth", "/breadth", "Breadth"],
   ["news", "/news", "News"],
   ["portfolio", "/portfolio", "Portfolio"],
 ];

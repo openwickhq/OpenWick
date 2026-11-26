@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Movers · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap">
+      <div class="pg-head">
+        <h1>Movers</h1>
+        <div class="seg" id="tabs">
+          <button data-t="gainers">Gainers</button>
+          <button data-t="losers">Losers</button>
+          <button data-t="sectors">Sectors</button>
+        </div>
+        <label class="pill" id="indexBox">In<select id="index"></select></label>
+        <div class="seg hidden" id="groups">
+          <button data-g="sector">Sectors &amp; themes</button>
+          <button data-g="broad">Broad market</button>
+          <button data-g="strategy">Strategy</button>
+        </div>
+        <span class="spacer"></span>
+        <span class="sc-count" id="count"></span>
+      </div>
+      <div class="sc-wrap"><table class="sc" id="table"><tbody><tr><td><div class="skeleton"></div></td></tr></tbody></table></div>
+      <div class="sc-meta"><span class="muted" id="note"></span></div>
+    </main>
+    <script type="module" src="/js/movers-page.js"></script>
+  </body>
+</html>

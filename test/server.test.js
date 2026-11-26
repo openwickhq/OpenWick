@@ -332,3 +332,15 @@ test('yahoo intraday: the latest-trade point joins its candle instead of making 
     assert.equal(bars.at(-1).time, T + 300 + 300 * Math.floor((s - 300) / 300));
   }
 });
+
+test('movers and breadth pages, and the index member lists they use', async () => {
+  for (const [p, title] of [['/movers', 'Movers'], ['/breadth', 'Market breadth']]) {
+    const page = await (await fetch(`${base}${p}`)).text();
+    assert.ok(page.includes(`<h1>${title}</h1>`), p);
+  }
+  const list = await (await fetch(`${base}/api/index-members`)).json();
+  const nifty = list.find((x) => x.name === 'NIFTY 50');
+  assert.equal(nifty.symbol, 'YAHOO:^NSEI');
+  assert.equal(nifty.members.length, 50);
+  assert.ok(list.length >= 30 && list.every((x) => x.members.length > 0));
+});

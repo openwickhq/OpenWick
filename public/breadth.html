@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Market breadth · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap">
+      <div class="pg-head">
+        <h1>Market breadth</h1>
+        <label class="pill">Index<select id="index"></select></label>
+        <span class="spacer"></span>
+        <span class="sc-count" id="head"></span>
+      </div>
+      <div class="panel breadth" id="breadth"><div class="skeleton"></div></div>
+      <div class="block-head bd-all"><h2>Every index <small id="allNote"></small></h2><div class="seg" id="groups"><button data-g="">All</button><button data-g="broad">Broad market</button><button data-g="sector">Sectors &amp; themes</button><button data-g="strategy">Strategy</button></div></div>
+      <div class="sc-wrap"><table class="sc" id="table"></table></div>
+      <div class="sc-meta"><span class="muted">Worked out from the NIFTY 500 stocks in each index, for the indices whose members OpenWick knows. Click a row to see that index above.</span></div>
+    </main>
+    <script type="module" src="/js/breadth-page.js"></script>
+  </body>
+</html>
