@@ -1,6 +1,6 @@
 // Movers: every gainer and loser of the day in NIFTY 500 (or any index whose members we know),
-// and every sector, theme and market index sorted by today's move. The home page's short lists
-// open here with "See all".
+// every sector, theme and market index sorted by today's move, and for crypto the 500 biggest
+// coins and every 24-hour gainer and loser. The home page's short lists open here with "See all".
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, pageUrl, badge, starButton, fmtCap } from "./site.js";
 import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions } from "./breadth.js";
@@ -8,30 +8,42 @@ import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions } fro
 await mountSite("movers");
 
 const params = new URLSearchParams(location.search);
+const TABS = {
+  india: [["gainers", "Gainers"], ["losers", "Losers"], ["sectors", "Sectors"]],
+  crypto: [["biggest", "Biggest coins"], ["gainers", "Gainers"], ["losers", "Losers"]],
+};
+const market = params.get("market") === "crypto" ? "crypto" : "india";
 const st = {
-  tab: ["gainers", "losers", "sectors"].includes(params.get("tab")) ? params.get("tab") : "gainers",
+  market,
+  tab: TABS[market].some(([t]) => t === params.get("tab")) ? params.get("tab") : TABS[market][0][0],
   index: params.get("index") || "NIFTY-500",
   group: ["sector", "broad", "strategy"].includes(params.get("group")) ? params.get("group") : "sector",
   sort: null,
   dir: -1,
 };
-let stocks = [], indices = [], members = [];
+let stocks = [], indices = [], members = [], coins = null;
+// Coins that trade at least this much in 24 hours count as gainers and losers (as on the home
+// page), so a thinly traded token's jump doesn't top the list.
+const LIQUID = 2e6;
 
 const absChange = (r) => (r.price != null && r.changePct != null ? r.price - r.price / (1 + r.changePct / 100) : null);
 const fmtAbs = (v) => (v == null ? "—" : `${v >= 0 ? "+" : "−"}${fmtPrice(Math.abs(v))}`);
 
 function save() {
-  const q = new URLSearchParams({ tab: st.tab });
-  if (st.tab === "sectors") q.set("group", st.group);
-  else if (st.index !== "NIFTY-500") q.set("index", st.index);
+  const q = new URLSearchParams(st.market === "crypto" ? { market: "crypto", tab: st.tab } : { tab: st.tab });
+  if (st.market === "india") {
+    if (st.tab === "sectors") q.set("group", st.group);
+    else if (st.index !== "NIFTY-500") q.set("index", st.index);
+  }
   history.replaceState(null, "", `/movers?${q}`);
 }
 
 function drawControls() {
-  for (const b of $("#tabs").children) b.classList.toggle("active", b.dataset.t === st.tab);
+  for (const b of $("#markets").children) b.classList.toggle("active", b.dataset.m === st.market);
+  $("#tabs").innerHTML = TABS[st.market].map(([t, l]) => `<button data-t="${t}" class="${t === st.tab ? "active" : ""}">${l}</button>`).join("");
   for (const b of $("#groups").children) b.classList.toggle("active", b.dataset.g === st.group);
-  $("#indexBox").classList.toggle("hidden", st.tab === "sectors");
-  $("#groups").classList.toggle("hidden", st.tab !== "sectors");
+  $("#indexBox").classList.toggle("hidden", st.market === "crypto" || st.tab === "sectors");
+  $("#groups").classList.toggle("hidden", st.market === "crypto" || st.tab !== "sectors");
   if (members.length && !$("#index").options.length) $("#index").innerHTML = indexOptions(members);
   if ($("#index").options.length) $("#index").value = st.index;
 }
@@ -108,12 +120,50 @@ function drawIndices() {
   $("#note").textContent = "Stocks up: how many of the index's stocks rose today (for the indices whose members OpenWick knows); click it for the index's breadth.";
 }
 
+function drawCoins() {
+  if (!coins) {
+    $("#table").innerHTML = `<tbody><tr><td><div class="skeleton"></div></td></tr></tbody>`;
+    return;
+  }
+  const priced = coins.filter((r) => r.price != null);
+  const biggest = st.tab === "biggest", gain = st.tab === "gainers";
+  const liquid = priced.filter((r) => r.changePct != null && (r.volume || 0) >= LIQUID);
+  const list = biggest ? priced : liquid.filter((r) => (gain ? r.changePct > 0 : r.changePct < 0));
+  if (!st.sort) (st.sort = biggest ? "rank" : "changePct"), (st.dir = biggest || !gain ? 1 : -1);
+  const getters = { rank: (r) => r.rank, ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, volume: (r) => r.volume, marketCap: (r) => r.marketCap };
+  const rows = sortRows(list, getters);
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Coin", "l")}${th("rank", "Rank")}${th("price", "Price (USD)")}${th("changePct", "24h change")}${th("volume", "24h volume")}${th("marketCap", "Market cap")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
+    <td class="l muted">${i + 1}</td>
+    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small>${esc(r.name || "")}</small></span></a></div></td>
+    <td class="muted" title="Rank by market cap among all coins">${r.rank ?? "—"}</td>
+    <td>${fmtPrice(r.price)}</td>
+    <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
+    <td>${fmtCap(r.volume)}</td>
+    <td>${fmtCap(r.marketCap)}</td>
+  </tr>`).join("") || `<tr><td class="l muted" colspan="7">${priced.length ? `No coin is ${gain ? "up" : "down"} in the last 24 hours.` : "No prices yet."}</td></tr>`}</tbody>`;
+  $("#count").textContent = biggest ? `${priced.length} coins by market cap` : `${list.length} of ${liquid.length} coins ${gain ? "up" : "down"} in 24 hours`;
+  $("#note").textContent = biggest
+    ? "The 500 biggest coins by market cap (Rank counts every coin, stablecoins too; they aren't listed). Prices in US dollars from Binance, Coinbase, Kraken and CoinGecko."
+    : `Coins trading at least $2M in the last 24 hours, so thinly traded tokens don't crowd the list. 24-hour change, in US dollars.`;
+}
+
 const draw = () => {
   drawControls();
-  st.tab === "sectors" ? drawIndices() : drawStocks();
+  if (st.market === "crypto") drawCoins();
+  else st.tab === "sectors" ? drawIndices() : drawStocks();
 };
 
+async function loadCoins() {
+  try {
+    coins = await api.get("/api/screener?universe=crypto500");
+    draw();
+  } catch (e) {
+    $("#table").innerHTML = `<tbody><tr><td class="l muted">Crypto prices aren't loading right now (${esc(e.message)}).</td></tr></tbody>`;
+  }
+}
+
 async function load() {
+  if (st.market === "crypto") return loadCoins();
   const [s, ix, m] = await Promise.allSettled([api.get("/api/screener?universe=nse"), api.get("/api/screener?universe=indices"), indexMembers()]);
   if (s.status === "fulfilled") stocks = s.value;
   if (ix.status === "fulfilled") indices = ix.value;
@@ -126,6 +176,16 @@ async function load() {
   draw();
 }
 
+$("#markets").onclick = (e) => {
+  const m = e.target.closest("[data-m]")?.dataset.m;
+  if (!m || m === st.market) return;
+  st.market = m;
+  st.tab = TABS[m][0][0];
+  st.sort = null;
+  save();
+  draw();
+  load();
+};
 $("#tabs").onclick = (e) => {
   const t = e.target.closest("[data-t]")?.dataset.t;
   if (!t || t === st.tab) return;
@@ -149,7 +209,7 @@ $("#index").onchange = (e) => {
 $("#table").onclick = (e) => {
   const k = e.target.closest("th")?.dataset.k;
   if (k) {
-    st.dir = st.sort === k ? -st.dir : k === "ticker" || k === "sector" ? 1 : -1;
+    st.dir = st.sort === k ? -st.dir : k === "ticker" || k === "sector" || k === "rank" ? 1 : -1;
     st.sort = k;
     return draw();
   }
