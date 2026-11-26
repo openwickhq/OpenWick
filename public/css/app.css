@@ -1704,3 +1704,65 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .topbar .view-btn { font-weight: 400; }
 .topbar .tb .caret { width: 14px; height: 14px; opacity: 0.6; }
 .st-desk { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+
+/* ---------- Notes panel (chart page) ---------- */
+.nt-top { gap: 6px; }
+.nt-top .btn.small { height: 28px; }
+.nt-top .tb.small svg { width: 16px; height: 16px; margin-right: 2px; }
+.nt-top .tb.on { color: #e5a43a; }
+.nt-filters { display: flex; gap: 8px; align-items: center; padding: 2px 12px 8px; }
+.nt-filters select.in { height: 30px; flex: 1; min-width: 0; font-size: 12.5px; }
+.nt-seg { display: inline-flex; padding: 2px; border-radius: 7px; border: 1px solid var(--border); flex: none; }
+.nt-seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 500; padding: 4px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
+.nt-seg button:hover:not(:disabled) { color: var(--text); }
+.nt-seg button.active { color: var(--text); background: var(--hover); box-shadow: inset 0 0 0 1px var(--border); }
+.nt-seg button.active.up { color: var(--up); } .nt-seg button.active.down { color: var(--down); }
+.nt-seg button:disabled { opacity: .5; cursor: default; }
+.nt-search { padding: 0 12px 8px; }
+.nt-search input { width: 100%; height: 30px; font-size: 12.5px; }
+.nt-cards { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 12px; }
+.nt-card { padding: 10px 10px 9px; margin-bottom: 6px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+.nt-card:hover { background: var(--hover); }
+.nt-c-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.nt-type { font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; color: var(--muted); background: var(--hover); flex: none; }
+.nt-type.t-trade { color: #e5a43a; background: color-mix(in srgb, #e5a43a 14%, transparent); }
+.nt-type.t-thesis { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.nt-sym { border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-size: 11.5px; font-weight: 600; padding: 1px 7px; border-radius: 999px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.nt-sym:hover { border-color: var(--control-hover, var(--muted)); }
+.nt-pinned svg { width: 13px; height: 13px; fill: none; stroke: #e5a43a; stroke-width: 1.8; display: block; }
+.nt-when { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.nt-c-title { margin-top: 7px; font-size: 13.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-c-meta { margin-top: 3px; font-size: 12px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.nt-c-meta b.up, .nt-calc b.up, .nt-since b.up { color: var(--up); } .nt-c-meta b.down, .nt-calc b.down, .nt-since b.down { color: var(--down); }
+.nt-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.nt-tags span { font-size: 11px; color: var(--muted); }
+.nt-since { display: block; margin-top: 5px; font-size: 11px; color: var(--muted); }
+.nt-empty { padding: 26px 12px; text-align: center; color: var(--text); font-size: 13px; }
+.nt-empty span { display: inline-block; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.nt-ed { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.nt-kinds { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
+.nt-kinds button { border: 1px solid var(--border); background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.nt-kinds button:hover { color: var(--text); }
+.nt-kinds button.active { color: var(--text); background: var(--hover); border-color: var(--control-hover, var(--muted)); }
+.nt-title { width: 100%; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-size: 16px; font-weight: 600; padding: 6px 0; outline: 0; }
+.nt-title:focus { border-bottom-color: var(--control-hover, var(--muted)); }
+.nt-symrow { display: flex; align-items: center; gap: 8px; font-size: 12.5px; min-height: 28px; }
+.nt-symrow .nt-sym { font-size: 12px; padding: 2px 9px; }
+.nt-trade { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; align-items: end; }
+.nt-trade label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--muted); min-width: 0; }
+.nt-trade label.hidden { display: none; }
+.nt-trade input.in, .nt-trade select.in { height: 32px; width: 100%; min-width: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.nt-trade .nt-seg { justify-self: start; }
+.nt-in { position: relative; display: block; }
+.nt-in input.in { padding-right: 42px; }
+.nt-now { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: var(--hover); color: var(--muted); font: inherit; font-size: 11px; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+.nt-now:hover { color: var(--text); }
+.nt-conv { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; }
+.nt-calc { font-size: 12px; color: var(--muted); line-height: 1.5; padding: 8px 10px; border-radius: 6px; background: var(--hover); }
+.nt-calc b { color: var(--text); font-weight: 600; }
+.nt-calc .muted { color: var(--muted); }
+.nt-body { width: 100%; min-height: 240px; flex: 1; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 13px; line-height: 1.55; padding: 10px; outline: 0; }
+.nt-body:focus { border-color: var(--control-hover, var(--muted)); }
+.nt-tagsin { width: 100%; height: 32px; font-size: 12.5px; }
+.nt-foot { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.nt-saved { font-size: 11.5px; color: var(--muted); white-space: nowrap; }

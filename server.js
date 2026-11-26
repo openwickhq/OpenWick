@@ -31,6 +31,7 @@ import { parseTf } from "./public/lib/series.js";
 import { relaunchForProxy, proxyNote } from "./lib/proxy.js";
 import { indiaEvents } from "./lib/india-calendar.js";
 import * as logos from "./lib/logos.js";
+import * as notes from "./lib/notes.js";
 
 // Screener data by market (also what screener alerts check).
 const SCREENS = {
@@ -325,6 +326,13 @@ async function handle(req, res) {
         store.write("portfolio", out);
         return send(res, 200, out);
       }
+    }
+    // Notes from the chart page's Notes panel (data/notes.json).
+    if (p === "/api/notes") return send(res, 200, { notes: notes.all() });
+    if (p.startsWith("/api/notes/")) {
+      const id = decodeURIComponent(p.slice(11));
+      if (req.method === "PUT") return send(res, 200, notes.save({ ...(await readBody(req, 1e6)), id }));
+      if (req.method === "DELETE") return send(res, 200, { removed: notes.remove(id) });
     }
     if (p === "/api/portfolio/info") return send(res, 200, company.describe(String(q.symbols || "").split(",").filter(Boolean).slice(0, 2000)));
     // How fresh the saved company figures are, and a "refresh now" for the screener page.

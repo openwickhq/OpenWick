@@ -344,3 +344,25 @@ test('movers and breadth pages, and the index member lists they use', async () =
   assert.equal(nifty.members.length, 50);
   assert.ok(list.length >= 30 && list.every((x) => x.members.length > 0));
 });
+
+test('notes: saved, cleaned, listed newest first and deleted', async () => {
+  const put = (id, body) => fetch(`${base}/api/notes/${id}`, { method: 'PUT', headers: H, body: JSON.stringify(body) }).then((r) => r.json());
+  const a = await put('n1', { type: 'trade', symbol: 'YAHOO:RELIANCE.NS', title: 'Breakout', trade: { side: 'short', entry: '1,400', stop: 1420, target: 'x', status: 'weird' }, evil: 1 });
+  assert.equal(a.id, 'n1');
+  assert.deepEqual(a.trade, { side: 'short', status: 'planned', entry: 1400, stop: 1420, target: null, exit: null, timeframe: '' });
+  assert.equal(a.evil, undefined);
+  const b = await put('n2', { type: 'nonsense', body: 'x'.repeat(30000), tags: ['a', '', 'b'] });
+  assert.equal(b.type, 'note');
+  assert.equal(b.body.length, 20000);
+  assert.deepEqual(b.tags, ['a', 'b']);
+  let list = (await (await fetch(`${base}/api/notes`)).json()).notes;
+  assert.deepEqual(list.map((n) => n.id), ['n2', 'n1']);
+  await put('n1', { ...a, title: 'Breakout, edited' });
+  list = (await (await fetch(`${base}/api/notes`)).json()).notes;
+  assert.deepEqual(list.map((n) => n.id), ['n1', 'n2']);
+  assert.equal(list[0].created, a.created);
+  const del = await (await fetch(`${base}/api/notes/n2`, { method: 'DELETE', headers: H })).json();
+  assert.equal(del.removed, 1);
+  const noHeader = await fetch(`${base}/api/notes/n9`, { method: 'PUT', body: '{}' });
+  assert.notEqual(noHeader.status, 200);
+});

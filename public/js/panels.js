@@ -16,6 +16,7 @@ import { BY_ID, registerIndicator } from "../lib/indicators.js";
 import { renderNews } from "./research.js";
 import { initViews } from "./views.js";
 import { objectsPanel } from "./objects.js";
+import { notesPanel } from "./notes.js";
 import { isSection, sectionName, symbolsOf, exportList, importList, moveEntry, sectionsOf } from "./watchlist-io.js";
 import { mountQuantChecks } from "./quantui.js";
 import { makeResizable, LIMITS } from "./resize.js";
@@ -40,6 +41,8 @@ export function initPanels(app) {
     bottom = $("#bottomBody"),
     bottomEl = $("#bottom");
   const objects = objectsPanel(side, app);
+  const notes = notesPanel(side, app);
+  window.addEventListener("pagehide", () => notes.flush());
   let sideTab = "watchlist",
     bottomTab = "tester";
   const P = {};
@@ -112,6 +115,7 @@ export function initPanels(app) {
       alerts: renderAlerts,
       calendar: renderCalendar,
       news: () => renderNews(side, app),
+      notes: () => notes.render(),
       objects: () => objects.render(),
     })[sideTab]();
   const renderBottom = () => {
@@ -1527,6 +1531,7 @@ export function initPanels(app) {
     if (sym !== lastSymbol) {
       lastSymbol = sym;
       if (sideTab === "news") renderNews(side, app);
+      if (sideTab === "notes") notes.onSymbol();
       P.onViewSymbol?.();
     }
     if (paperOpen()) renderPaper();
