@@ -5,6 +5,7 @@ import { esc, fmtPrice, fmtPct, ticker } from "./api.js";
 import { BY_ID } from "../lib/indicators.js";
 import { TOOL_BY_ID } from "./drawings.js";
 import { isIntraday } from "../lib/series.js";
+import { ask } from "./dialog.js";
 
 const I = {
   eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>',
@@ -53,7 +54,7 @@ function treeHtml(pane) {
 }
 
 function wireTree(el, pane, app, redraw) {
-  el.onclick = (e) => {
+  el.onclick = async (e) => {
     const b = e.target.closest("[data-act]");
     const r = e.target.closest(".ot-row");
     const d = pane.drawings;
@@ -79,7 +80,7 @@ function wireTree(el, pane, app, redraw) {
     if (act === "draw-remove" && item) { d.items = d.items.filter((x) => x !== item); if (d.selected === item) d.selected = null; d.update(); save(); }
     if (act === "draw-showall") { d.items.forEach((x) => (x.hidden = false)); d.update(); save(); }
     if (act === "draw-clear") {
-      if (!confirm(`Remove all ${d.items.length} drawings on ${ticker(pane.cfg.symbol)}?`)) return;
+      if (!(await ask(`Remove all ${d.items.length} drawings on ${ticker(pane.cfg.symbol)}?`, { ok: "Remove all", danger: true }))) return;
       pane.clearDrawings();
     }
     redraw();

@@ -2,6 +2,7 @@
 // edit text (notes), alert (lines), lock, clone and delete. One per chart; it follows the drawing
 // as the chart scrolls and hides while a drawing is being made or dragged.
 import { colorOf, DASHES } from "./drawings.js";
+import { askText } from "./dialog.js";
 
 const PALETTE = [
   "#f23645", "#ff9800", "#ffeb3b", "#4caf50", "#089981", "#00bcd4", "#2962ff", "#7c5cff", "#9c27b0", "#e91e63",
@@ -97,7 +98,7 @@ export class DrawToolbar {
     p.drawings.update();
   }
 
-  onClick(e) {
+  async onClick(e) {
     const b = e.target.closest("[data-act],[data-set]");
     const d = this.item;
     if (!b || !d) return;
@@ -114,7 +115,7 @@ export class DrawToolbar {
     if (["color", "width", "dash"].includes(act)) return this.togglePop(act, b);
     this.closePop();
     if (act === "text") {
-      const t = prompt("Note text:", d.text || "");
+      const t = await askText("Note text:", d.text || "", { ok: "Done" });
       if (t != null && t.trim()) {
         d.text = t.trim();
         this.save();

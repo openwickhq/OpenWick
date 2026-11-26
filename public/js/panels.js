@@ -28,6 +28,7 @@ import {
 } from "../lib/backtest.js";
 import { parseTf } from "../lib/series.js";
 import { PRICE, OP_LABEL, outputsOf, ruleHtml, bindRules, readRules, compileRules, toOperand, defaultRule } from "./rules.js";
+import { ask, askText } from "./dialog.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const LW = window.LightweightCharts;
@@ -179,8 +180,8 @@ export function initPanels(app) {
     ...(flagOf(s) ? [{ label: "Remove flag", run: () => setFlag(s, null) }] : []),
   ];
   const at = (x, y) => ({ getBoundingClientRect: () => ({ left: x, bottom: y }) });
-  function askSection(title, value = "") {
-    const n = prompt(title, value)?.trim().slice(0, 40);
+  async function askSection(title, value = "") {
+    const n = (await askText(title, value, { ok: value ? "Rename" : "Add", field: { max: 40 } }))?.trim().slice(0, 40);
     return n || null;
   }
   // Sorting by a column: off, then one way, then the other, then off again.
@@ -258,8 +259,8 @@ export function initPanels(app) {
       popMenu(e.currentTarget, [
         { label: "Add symbol…", run: () => app.openSymbolSearch("", addToList, `Add to ${app.state.activeWatchlist}`) },
         { label: "Add the chart's symbol", run: () => app.active && addToList(app.active.cfg.symbol) },
-        { label: "Add a section…", run: () => {
-          const n = askSection("Section name (it goes at the bottom; drag symbols under it):");
+        { label: "Add a section…", run: async () => {
+          const n = await askSection("Section name (it goes at the bottom; drag symbols under it):");
           if (n) setList([...wlList(), `###${n}`]);
         } },
         { label: app.settings.wlFlaggedOnly ? "Show all symbols" : "Show flagged only", run: () => { app.settings.wlFlaggedOnly = !app.settings.wlFlaggedOnly; app.persist(); drawRows(); } },
@@ -268,17 +269,17 @@ export function initPanels(app) {
         { label: "Import list…", note: ".txt", run: importFromFile },
         { label: "Export list", note: ".txt", run: () => download(`${app.state.activeWatchlist}.txt`, exportList(wlList())) },
         { sep: true },
-        { label: "New list…", run: () => {
-          const n = prompt("Name for the new list:");
+        { label: "New list…", run: async () => {
+          const n = (await askText("Name for the new list:", "", { ok: "Create", field: { placeholder: "e.g. Swing ideas", max: 60 } }))?.trim();
           if (!n || app.state.watchlists[n]) return;
           app.state.watchlists[n] = [];
           app.state.activeWatchlist = n;
           app.persist();
           renderWatchlist();
         } },
-        { label: "Rename list…", run: () => {
+        { label: "Rename list…", run: async () => {
           const old = app.state.activeWatchlist;
-          const n = prompt("New name:", old);
+          const n = (await askText("New name for the list:", old, { ok: "Rename", field: { max: 60 } }))?.trim();
           if (!n || n === old || app.state.watchlists[n]) return;
           const entries = Object.entries(app.state.watchlists).map(([k, v]) => [k === old ? n : k, v]);
           app.state.watchlists = Object.fromEntries(entries);
@@ -286,9 +287,9 @@ export function initPanels(app) {
           app.persist();
           renderWatchlist();
         } },
-        { label: "Delete list", run: () => {
+        { label: "Delete list", run: async () => {
           if (Object.keys(app.state.watchlists).length < 2) return app.toast("Keep at least one list.");
-          if (!confirm(`Delete the list "${app.state.activeWatchlist}"?`)) return;
+          if (!(await ask(`Delete the list “${app.state.activeWatchlist}”?`, { ok: "Delete", danger: true }))) return;
           delete app.state.watchlists[app.state.activeWatchlist];
           app.state.activeWatchlist = Object.keys(app.state.watchlists)[0];
           app.persist();
@@ -316,7 +317,7 @@ export function initPanels(app) {
       if (head) {
         const h = head.dataset.h;
         return popMenu(at(e.clientX, e.clientY), [
-          { label: "Rename section…", run: () => { const n = askSection("New name:", sectionName(h)); if (n) setList(list.map((x) => (x === h ? `###${n}` : x))); } },
+          { label: "Rename section…", run: async () => { const n = await askSection("New name:", sectionName(h)); if (n) setList(list.map((x) => (x === h ? `###${n}` : x))); } },
           { label: "Remove section", note: "keeps its symbols", run: () => setList(list.filter((x) => x !== h)) },
         ]);
       }
@@ -327,7 +328,7 @@ export function initPanels(app) {
         ...flagItems(s),
         { sep: true },
         ...sections.map((h) => ({ label: `Move to ${sectionName(h)}`, run: () => { const i = list.indexOf(h); setList(moveEntry(list, s, list.slice(i + 1).find((x) => isSection(x)) ?? null)); } })),
-        { label: "Add a section above…", run: () => { const n = askSection("Section name:"); if (n) { const l = [...list]; l.splice(l.indexOf(s), 0, `###${n}`); setList(l); } } },
+        { label: "Add a section above…", run: async () => { const n = await askSection("Section name:"); if (n) { const l = [...list]; l.splice(l.indexOf(s), 0, `###${n}`); setList(l); } } },
         ...(/^YAHOO:/.test(s) ? [{ label: "Open the stock page", run: () => window.open(/\.(NS|BO)$/.test(s) ? `/symbol/${encodeURIComponent(ticker(s).replace(/\.(NS|BO)$/, ""))}` : `/symbol/${encodeURIComponent(labelFor(s))}`, "_blank") }] : []),
         { label: "Remove from list", run: () => setList(list.filter((x) => x !== s)) },
       ];
@@ -622,7 +623,7 @@ export function initPanels(app) {
       const a = list.find((x) => x.id === id);
       try {
         if (b.dataset.sact === "del") {
-          if (!confirm(`Delete the screener alert “${a.name}”?`)) return;
+          if (!(await ask(`Delete the screener alert “${a.name}”?`, { ok: "Delete", danger: true }))) return;
           await api.del(`/api/screen-alerts/${id}`);
         } else await api.patch(`/api/screen-alerts/${id}`, { active: !a.active });
       } catch (err) {
@@ -939,8 +940,8 @@ export function initPanels(app) {
         app.toast(e.message, "err");
       }
     };
-    $("#tSave").onclick = () => {
-      const name = prompt("Name this strategy:");
+    $("#tSave").onclick = async () => {
+      const name = (await askText("Name this strategy:", "", { ok: "Save", field: { max: 60 } }))?.trim();
       if (!name) return;
       app.state.strategies = {
         ...(app.state.strategies || {}),
@@ -1320,13 +1321,8 @@ export function initPanels(app) {
     };
     $("#ppBuy").onclick = () => place("buy");
     $("#ppSell").onclick = () => place("sell");
-    $("#ppReset").onclick = () => {
-      if (
-        !confirm(
-          "Reset the paper account? Positions, orders and history are cleared.",
-        )
-      )
-        return;
+    $("#ppReset").onclick = async () => {
+      if (!(await ask("Reset the paper account?\nPositions, orders and history are cleared.", { ok: "Reset", danger: true }))) return;
       app.state[replayPane() ? "replayPaper" : "paper"] = {
         initial: Number($("#ppInit").value) || 100000,
         cash: Number($("#ppInit").value) || 100000,
@@ -1458,7 +1454,7 @@ export function initPanels(app) {
         const def = await app.importCustom(file);
         if (def) app.active.addIndicator(def.id);
       }
-      if (btn.dataset.act === "del" && confirm(`Delete ${file}?`)) {
+      if (btn.dataset.act === "del" && (await ask(`Delete ${file}?`, { ok: "Delete", danger: true }))) {
         await api.del(`/api/custom/${encodeURIComponent(file)}`);
         renderEditor();
       }

@@ -3,6 +3,7 @@
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, badge, starButton, ago } from "./site.js";
 import { readHoldingsFile } from "./holdings-import.js";
+import { ask, notice } from "./dialog.js";
 
 await mountSite("portfolio");
 let pf = { holdings: [], source: null, realised: 0 };
@@ -43,7 +44,7 @@ async function importFile(f) {
   try {
     const r = await readHoldingsFile(f);
     if (!r.holdings.length) return msg(`No holdings found in ${esc(f.name)}.`, "bad");
-    if (pf.holdings.length && !confirm(`Replace your ${pf.holdings.length} saved holdings with the ${r.holdings.length} in ${f.name}?`)) return msg("");
+    if (pf.holdings.length && !(await ask(`Replace your ${pf.holdings.length} saved holdings with the ${r.holdings.length} in ${f.name}?`, { ok: "Replace" }))) return msg("");
     await save({ holdings: r.holdings, realised: r.realised, source: `${f.name} · ${r.kind === "tradebook" ? "tradebook" : "holdings"}` });
     msg(`Imported ${r.holdings.length} holdings from ${esc(f.name)}.${r.notes.length ? ` ${esc(r.notes.join(" "))}` : ""}`, "ok");
   } catch (e) {
@@ -75,7 +76,7 @@ function editDialog(h = null) {
     e.preventDefault();
     const symbol = $("#hSym").value.trim().toUpperCase().replace(/\.NS$/, "");
     const qty = Number($("#hQty").value), avg = Number($("#hAvg").value);
-    if (!/^[A-Z0-9&\-_.]+$/.test(symbol) || !(qty > 0)) return alert("Enter an NSE symbol and a quantity above zero.");
+    if (!/^[A-Z0-9&\-_.]+$/.test(symbol) || !(qty > 0)) return notice("Enter an NSE symbol and a quantity above zero.");
     const rest = pf.holdings.filter((x) => x.symbol !== symbol);
     close();
     await save({ ...pf, holdings: [...rest, { ...(h || {}), symbol, qty, avg: avg || 0 }], source: pf.source || "typed in" });
@@ -119,7 +120,7 @@ function draw() {
   }
   $("#imp").onclick = () => $("#file").click();
   $("#clr").onclick = async () => {
-    if (!confirm("Remove all holdings from this page? (Your file and your Zerodha account aren't touched.)")) return;
+    if (!(await ask("Remove all holdings from this page?\nYour file and your Zerodha account aren't touched.", { ok: "Remove all", danger: true }))) return;
     await save({ holdings: [], source: null, realised: 0 });
     msg("");
   };

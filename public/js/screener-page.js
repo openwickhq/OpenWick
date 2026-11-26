@@ -4,6 +4,7 @@
 import { api, esc, fmtPrice, fmtNum, download } from "./api.js";
 import { $, chartUrl, pageUrl, mountSite, badge, fmtCap, starButton } from "./site.js";
 import { ruleHtml, bindRules, readRules, compileRules } from "./rules.js";
+import { ask, notice } from "./dialog.js";
 
 // ---------- metrics ----------
 // fmt: chg = signed % in colour, pct = plain %, x = ratio, cap = market cap, cr = rupees in crore,
@@ -387,11 +388,11 @@ async function drawScreenAlerts() {
     if (!b) return;
     try {
       if (b.dataset.del) {
-        if (!confirm("Delete this screener alert?")) return;
+        if (!(await ask("Delete this screener alert?", { ok: "Delete", danger: true }))) return;
         await api.del(`/api/screen-alerts/${b.dataset.del}`);
       } else await api.patch(`/api/screen-alerts/${b.dataset.tog}`, { active: b.dataset.on !== "1" });
     } catch (err) {
-      alert(err.message);
+      notice(err.message);
     }
     drawScreenAlerts();
   };
@@ -399,7 +400,7 @@ async function drawScreenAlerts() {
 $("#screenAlert").onclick = () => {
   const rules = screenRules();
   if (!rules.length && !sc.sector && !sc.capClass)
-    return alert("Set some filters first (a ready-made screen, a sector or a metric range). The alert fires when a new stock starts matching them.");
+    return notice("Set some filters first (a ready-made screen, a sector or a metric range). The alert fires when a new stock starts matching them.");
   const draft = { universe: sc.universe, rules, sector: sc.sector || undefined, capClass: sc.capClass || undefined };
   // What matches now on the saved filters alone (the same test the server runs).
   const rows = sc.rows.filter((r) => (!draft.sector || r.sector === draft.sector) && (!draft.capClass || r.capClass === draft.capClass) &&
@@ -427,7 +428,7 @@ $("#screenAlert").onclick = () => {
       close();
       drawScreenAlerts();
     } catch (err) {
-      alert(err.message);
+      notice(err.message);
     }
   };
 };

@@ -16,6 +16,7 @@ import { FUND_INDICATORS } from "../lib/fund-metrics.js";
 import { openIndicatorPicker as openPicker } from "./ind-picker.js";
 import { openSymbolSearch } from "./sym-search.js";
 import { initPickMenus, syncPickMenus } from "./pick-menus.js";
+import { ask, askText } from "./dialog.js";
 
 // Drawing tool shortcuts, as in other charting apps. Alt+R stays "reset chart view".
 const DRAW_KEYS = { KeyT: "trend", KeyH: "hline", KeyJ: "hray", KeyV: "vline", KeyF: "fib", KeyC: "channel", KeyB: "rect", KeyM: "measure", KeyX: "text" };
@@ -196,10 +197,10 @@ class App {
     document.querySelectorAll("#rangeButtons button").forEach((b) => b.classList.toggle("active", b.dataset.range === key));
   }
 
-  goToDate() {
+  async goToDate() {
     const p = this.active;
     if (!p?.bars.length) return;
-    const v = prompt("Go to date (YYYY-MM-DD):", new Date((p.bars.at(-1).time - 30 * 86400) * 1000).toISOString().slice(0, 10));
+    const v = await askText("Go to date (YYYY-MM-DD):", new Date((p.bars.at(-1).time - 30 * 86400) * 1000).toISOString().slice(0, 10), { ok: "Go", field: { max: 10 } });
     if (!v) return;
     const t = Date.parse(`${v.trim()}T00:00:00Z`) / 1000;
     if (!Number.isFinite(t)) return this.toast("Use a date like 2025-03-15.", "err");
@@ -399,11 +400,11 @@ class App {
       { foot: `<button class="btn primary" data-ok>${rename ? "Rename" : "Save"}</button>` });
     const input = card.querySelector("#layoutNameIn");
     setTimeout(() => { input.focus(); input.select(); }, 30);
-    const done = () => {
+    const done = async () => {
       const n = cleanName(input.value);
       if (!n) return input.focus();
       const all = { ...(this.state.layouts || {}) };
-      if (n !== cur && all[n] && !confirm(`Replace the layout “${n}”?`)) return;
+      if (n !== cur && all[n] && !(await ask(`Replace the layout “${n}”?`, { ok: "Replace" }))) return;
       if (rename && cur) delete all[cur];
       all[n] = layoutEntry(this.state);
       this.state.layouts = all;
@@ -433,13 +434,13 @@ class App {
     const r = anchor.getBoundingClientRect();
     m.style.top = `${r.bottom + 4}px`;
     m.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8))}px`;
-    m.onclick = (e) => {
+    m.onclick = async (e) => {
       e.stopPropagation();
       const b = e.target.closest("button");
       if (!b) return;
       if (b.dataset.del) {
         const n = b.dataset.del;
-        if (!confirm(`Delete the layout “${n}”?${n === cur ? " The charts on screen stay as they are." : ""}`)) return;
+        if (!(await ask(`Delete the layout “${n}”?${n === cur ? "\nThe charts on screen stay as they are." : ""}`, { ok: "Delete", danger: true }))) return;
         const next = { ...all };
         delete next[n];
         this.state.layouts = next;
@@ -792,7 +793,7 @@ class App {
       e.preventDefault();
       openFly(g, grp);
     };
-    bar.onclick = (e) => {
+    bar.onclick = async (e) => {
       const fly = e.target.closest("[data-fly]");
       if (fly) return openFly(TOOL_GROUPS.find((g) => g.id === fly.dataset.fly), fly.parentElement);
       const b = e.target.closest("button");
@@ -807,7 +808,7 @@ class App {
         this.toast("Click a drawing first to select it.");
       if (
         b.dataset.act === "clear" &&
-        confirm(`Remove every drawing on ${ticker(this.active.cfg.symbol)}?`)
+        (await ask(`Remove every drawing on ${ticker(this.active.cfg.symbol)}?`, { ok: "Remove all", danger: true }))
       )
         this.active.clearDrawings();
     };
@@ -862,12 +863,12 @@ class App {
     const r = anchor.getBoundingClientRect();
     m.style.top = `${r.bottom + 4}px`;
     m.style.left = `${Math.min(r.left, innerWidth - m.offsetWidth - 8)}px`;
-    m.onclick = (e) => {
+    m.onclick = async (e) => {
       e.stopPropagation();
       const b = e.target.closest("button");
       if (!b) return;
       if (b.dataset.del) {
-        if (!confirm(`Delete the template “${b.dataset.del}”?`)) return;
+        if (!(await ask(`Delete the template “${b.dataset.del}”?`, { ok: "Delete", danger: true }))) return;
         const next = { ...all };
         delete next[b.dataset.del];
         this.state.chartTemplates = next;
@@ -895,10 +896,10 @@ class App {
       { foot: '<button class="btn primary" data-ok>Save</button>' });
     const name = card.querySelector("#tplName");
     setTimeout(() => name.focus(), 30);
-    const save = () => {
+    const save = async () => {
       const n = name.value.trim();
       if (!n) return name.focus();
-      if (this.state.chartTemplates?.[n] && !confirm(`Replace the template “${n}”?`)) return;
+      if (this.state.chartTemplates?.[n] && !(await ask(`Replace the template “${n}”?`, { ok: "Replace" }))) return;
       this.state.chartTemplates = { ...(this.state.chartTemplates || {}), [n]: this.templateFrom(p, card.querySelector("#tplTf").value === "1") };
       this.persist();
       this.closeModal();

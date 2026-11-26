@@ -10,6 +10,7 @@
 // box) and the Notes page (list on the left, the open note on the right).
 import { api, esc, fmtPrice, fmtPct, ticker, download } from "./api.js";
 import { localSearch } from "./sym-search.js";
+import { ask } from "./dialog.js";
 
 const TYPES = [["trade", "Trade idea"], ["thesis", "Investment thesis"], ["journal", "Journal"], ["note", "Note"]];
 const TYPE_NAME = Object.fromEntries(TYPES);
@@ -314,7 +315,7 @@ export function notesView({ listEl, editEl, app, onPick }) {
     if ($("#ntBack")) $("#ntBack").onclick = closeEditor;
     $("#ntPin").onclick = () => { n.pinned = !n.pinned; changed(); drawEditor(); };
     $("#ntDel").onclick = async () => {
-      if (!confirm("Delete this note? This can't be undone.")) return;
+      if (!(await ask("Delete this note? This can't be undone.", { ok: "Delete", danger: true }))) return;
       clearTimeout(saveTimer);
       try {
         await api.del(`/api/notes/${encodeURIComponent(n.id)}`);

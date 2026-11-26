@@ -18,6 +18,7 @@ import { CURRENCIES, fiatOf, canConvert, convertBars } from "./fx.js";
 import { VolumeProfile, SessionVolumeProfile } from "./volume-profile.js";
 import { SessionLayer } from "./sessions.js";
 import { StdDevChannel } from "./std-channel.js";
+import { askText } from "./dialog.js";
 
 const LW = window.LightweightCharts;
 
@@ -1024,19 +1025,25 @@ export class ChartPane {
       const item = d.temp;
       delete item.done;
       d.temp = null;
-      if (item.type === "text") {
-        const text = prompt("Note text:", "");
-        if (!text) {
+      const place = () => {
+        d.items.push(item);
+        d.selected = item;
+        this.app.saveDrawings(this.cfg.symbol, d.items);
+        if (!this.app.settings.stayInDrawMode) this.app.setTool("cursor");
+        d.update();
+      };
+      if (item.type !== "text") return place();
+      d.update();
+      askText("Note text:", "", { ok: "Add", field: { placeholder: "What should the note say?", max: 500 } }).then((text) => {
+        if (!text?.trim()) {
           d.update();
           this.app.setTool("cursor");
           return;
         }
-        item.text = text;
-      }
-      d.items.push(item);
-      d.selected = item;
-      this.app.saveDrawings(this.cfg.symbol, d.items);
-      if (!this.app.settings.stayInDrawMode) this.app.setTool("cursor");
+        item.text = text.trim();
+        place();
+      });
+      return;
     }
     d.update();
   }

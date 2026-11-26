@@ -1791,3 +1791,22 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .nt-symres button { display: flex; gap: 8px; align-items: baseline; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-size: 12.5px; padding: 7px 10px; text-align: left; cursor: pointer; }
 .nt-symres button:hover { background: var(--hover); }
 .nt-symres button span { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- In-app dialogs (dialog.js), in place of the browser's alert / confirm / prompt ---------- */
+.ow-dlg-wrap { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgba(0, 0, 0, .45); animation: owDlgIn .12s ease-out; }
+.ow-dlg-wrap.out { opacity: 0; transition: opacity .12s ease; }
+.ow-dlg { width: min(420px, 100%); padding: 20px 20px 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .55); color: var(--text); font-size: 14px; animation: owDlgPop .14s cubic-bezier(.2, .8, .2, 1); }
+.ow-dlg-title { font-weight: 600; font-size: 15px; margin-bottom: 6px; }
+.ow-dlg-msg { line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.ow-dlg-in { display: block; width: 100%; height: 38px; margin-top: 14px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--control, var(--border)); background: transparent; color: var(--text); font: inherit; outline: 0; }
+.ow-dlg-in:focus { border-color: var(--control-hover, var(--muted)); }
+.ow-dlg-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ow-dlg-btn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; height: 34px; min-width: 76px; margin: 0; padding: 0 16px; line-height: 1; border-radius: 8px; border: 1px solid var(--control, var(--border)); background: transparent; color: var(--text); font: inherit; font-weight: 500; cursor: pointer; }
+.ow-dlg-btn:hover { background: var(--hover); }
+.ow-dlg-btn:focus-visible { outline: 2px solid var(--control-hover, var(--muted)); outline-offset: 2px; }
+.ow-dlg-btn.main { background: var(--btn-primary-bg, var(--text)); border-color: var(--btn-primary-bg, var(--text)); color: var(--btn-primary-fg, var(--bg)); font-weight: 600; }
+.ow-dlg-btn.main:hover { opacity: .9; }
+.ow-dlg-btn.main.danger { background: var(--down); border-color: var(--down); color: #fff; }
+@keyframes owDlgIn { from { opacity: 0; } }
+@keyframes owDlgPop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .ow-dlg-wrap, .ow-dlg { animation: none; } }

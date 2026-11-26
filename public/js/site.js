@@ -3,6 +3,7 @@
 import { api, esc, fmtNum, ticker, logoUrl, logoImg } from "./api.js";
 import { FILTERS, POPULAR, categoryOf, recentSymbols, rememberSymbol, localSearch } from "./sym-search.js";
 import INDEX_NAMES from "./index-names.js";
+import { askText, notice } from "./dialog.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
 export const chartUrl = (sym) => `/chart?symbol=${encodeURIComponent(sym)}`;
@@ -144,7 +145,7 @@ export async function openWatchMenu(sym, x, y) {
     if (!b) return;
     let body;
     if (b.dataset.new) {
-      const name = prompt("Name for the new list:");
+      const name = await askText("Name for the new list:", "", { ok: "Create", field: { placeholder: "e.g. Swing ideas", max: 60 } });
       if (!name?.trim()) return;
       body = { action: "create", list: name.trim(), symbol: sym };
     } else body = { action: WL.lists[b.dataset.l].includes(sym) ? "remove" : "add", list: b.dataset.l, symbol: sym };
@@ -154,7 +155,7 @@ export async function openWatchMenu(sym, x, y) {
       draw();
       markStars(sym);
     } catch (err) {
-      alert(err.message);
+      notice(err.message);
     }
   };
   setTimeout(() => document.addEventListener("click", function close(e) {
