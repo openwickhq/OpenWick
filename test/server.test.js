@@ -309,3 +309,26 @@ test('desktop app: interface size for each kind of screen', async () => {
   for (const [name, w, h, want] of cases) assert.equal(autoScale(w, h), want, name);
   assert.ok(autoScale(15360, 8640) <= 3);
 });
+
+test('yahoo intraday: the latest-trade point joins its candle instead of making a new thin one', async () => {
+  const { parseYahoo } = await import('../lib/providers.js');
+  const T = 1795669200; // 10:30 IST
+  const chart = (timestamp, rows) => ({ chart: { result: [{ meta: { gmtoffset: 19800 }, timestamp,
+    indicators: { quote: [{ open: rows.map((r) => r?.[0] ?? null), high: rows.map((r) => r?.[1] ?? null),
+      low: rows.map((r) => r?.[2] ?? null), close: rows.map((r) => r?.[3] ?? null), volume: rows.map((r) => r?.[4] ?? null) }] } }] } });
+  // 5m: 10:30 and 10:35 done, 10:40 still empty, then the latest trade at 10:40:33.
+  let bars = parseYahoo(chart([T, T + 300, T + 600, T + 633], [[1, 2, 0.5, 1.5, 10], [1.5, 3, 1.4, 2, 20], null, [2.5, 2.5, 2.5, 2.5, 0]]), '5m');
+  assert.deepEqual(bars.map((b) => b.time), [T, T + 300, T + 600]);
+  assert.deepEqual([bars[2].open, bars[2].high, bars[2].low, bars[2].close], [2, 2.5, 2, 2.5]);
+  assert.equal(bars[2].forming, true);
+  // 1h on NSE starts at :15; the point at 10:41 belongs to the 10:15 candle, which it extends.
+  const H = T - 900;
+  bars = parseYahoo(chart([H - 3600, H, H + 1591], [[1, 2, 1, 2, 5], [2, 3, 1.5, 2.8, 7], [3.4, 3.4, 3.4, 3.4, 0]]), '1h');
+  assert.deepEqual(bars.map((b) => b.time), [H - 3600, H]);
+  assert.deepEqual([bars[1].open, bars[1].high, bars[1].low, bars[1].close], [2, 3.4, 1.5, 3.4]);
+  // Repeated refreshes keep landing on the same candle.
+  for (const s of [610, 640, 655]) {
+    bars = parseYahoo(chart([T, T + 300, T + s], [[1, 2, 0.5, 1.5, 10], [1.5, 3, 1.4, 2, 20], [2.2, 2.2, 2.2, 2.2, 0]]), '5m');
+    assert.equal(bars.at(-1).time, T + 300 + 300 * Math.floor((s - 300) / 300));
+  }
+});
