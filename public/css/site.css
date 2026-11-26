@@ -264,7 +264,8 @@ table.sc .skeleton { height: 300px; }
 .sc-count b.up { color: var(--up); } .sc-count b.down { color: var(--down); }
 table.sc td.mv-bar { width: 22%; min-width: 140px; }
 .mv-bar .track { display: block; position: relative; height: 8px; }
-.mv-bar .track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border); }
+table.sc th.mv-barh { text-align: center; }
+.mv-bar .track::before { content: ""; position: absolute; left: 50%; top: -5px; bottom: -5px; width: 1px; transform: translateX(-.5px); background: color-mix(in srgb, var(--muted) 55%, transparent); }
 .mv-bar .fill { position: absolute; top: 0; height: 8px; border-radius: 4px; }
 .mv-bar .fill.up { background: var(--up); } .mv-bar .fill.down { background: var(--down); }
 a.mv-up { color: var(--text); text-decoration: underline dotted; text-underline-offset: 3px; }

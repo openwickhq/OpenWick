@@ -100,7 +100,7 @@ function drawIndices() {
   const getters = { ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, perfW: (r) => r.perfW, perfM: (r) => r.perfM, perfY: (r) => r.perfY, up: share };
   const rows = sortRows(list, getters);
   const max = Math.max(0.5, ...rows.map((r) => Math.abs(r.changePct)));
-  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="l mv-barh opt1">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week", "opt2")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="mv-barh opt1" title="Today's move, from the zero line in the middle: right is up, left is down">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week", "opt2")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
     const w = (Math.abs(r.changePct) / max) * 50;
     const pos = r.changePct >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
     const b = breadth.get(r.symbol);
