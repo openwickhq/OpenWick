@@ -18,10 +18,9 @@ export const cls = (v) => (v == null ? "" : v >= 0 ? "up" : "down");
 
 const LOGO = `<img src="/img/logo.svg" width="30" height="30" alt="" />`;
 const LINKS = [
+  ["markets", "/movers", "Markets"],
   ["screener", "/screener", "Screener"],
   ["heatmap", "/heatmap", "Heatmap"],
-  ["movers", "/movers", "Movers"],
-  ["breadth", "/breadth", "Breadth"],
   ["news", "/news", "News"],
   ["portfolio", "/portfolio", "Portfolio"],
 ];

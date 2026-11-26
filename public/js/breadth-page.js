@@ -4,7 +4,7 @@ import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, pageUrl } from "./site.js";
 import { indexMembers, rowsOf, slugOf, breadthStats, breadthHtml, groupOf, indexOptions, pct } from "./breadth.js";
 
-await mountSite("breadth");
+await mountSite("markets");
 
 const st = { index: new URLSearchParams(location.search).get("index") || "NIFTY-500", group: "", sort: null, dir: -1 };
 let stocks = [], indices = [], members = [];
@@ -24,7 +24,7 @@ function drawTop() {
   $("#breadth").innerHTML = stocks.length
     ? breadthHtml(rows) + (missing > 0 ? `<div class="sub muted bd-miss">${missing} of its ${m.members.length} stocks aren't in NIFTY 500, so they aren't counted.</div>` : "")
     : `<div class="empty">Indian prices aren't loading right now.</div>`;
-  document.title = `${m.name} breadth · OpenWick`;
+  document.title = `${m.name} breadth · Markets · OpenWick`;
   history.replaceState(null, "", st.index === "NIFTY-500" ? "/breadth" : `/breadth?index=${st.index}`);
 }
 

@@ -103,6 +103,11 @@ html.page body { background: var(--bg); }
 .seg button { border: 0; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; }
 .seg button:hover { color: var(--text); background: var(--hover); }
 .seg button.active { color: var(--accent-fg); background: var(--accent); }
+.seg a { color: var(--muted); padding: 7px 14px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+.seg a:hover { color: var(--text); background: var(--hover); }
+.seg a.active { color: var(--accent-fg); background: var(--accent); }
+.pg-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: -4px 0 16px; }
+.pg-tools .spacer { flex: 1; }
 .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: 13px; }
 .pill:focus-within { border-color: var(--accent); }
@@ -221,10 +226,10 @@ table.sc .skeleton { height: 300px; }
 /* ---------- "See all" links, movers and breadth pages ---------- */
 .block-head .links { display: flex; gap: 20px; }
 .panel h3 a.more { float: right; font-size: 12.5px; font-weight: 500; color: var(--accent); text-decoration: none; }
-.panel h3 a.more:hover, .block-head .links a:hover, .pg-head .sc-count a:hover { text-decoration: underline; }
-.pg-head .sc-count a { color: var(--accent); text-decoration: none; }
-.pg-head .sc-count b { font-weight: 600; }
-.pg-head .sc-count b.up { color: var(--up); } .pg-head .sc-count b.down { color: var(--down); }
+.panel h3 a.more:hover, .block-head .links a:hover, .pg-head .sc-count a:hover, .pg-tools .sc-count a:hover { text-decoration: underline; }
+.pg-head .sc-count a, .pg-tools .sc-count a { color: var(--accent); text-decoration: none; }
+.pg-head .sc-count b, .pg-tools .sc-count b { font-weight: 600; }
+.sc-count b.up { color: var(--up); } .sc-count b.down { color: var(--down); }
 table.sc td.mv-bar { width: 22%; min-width: 140px; }
 .mv-bar .track { display: block; position: relative; height: 8px; }
 .mv-bar .track::before { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border); }
@@ -442,7 +447,7 @@ button.h-btn { border: 0; cursor: pointer; font: inherit; font-weight: 600; }
 /* selection style without colour: grey fill, thin white outline */
 .h-links a.active { color: var(--text); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--sel-border); }
 .h-search:focus-within { outline: 1px solid var(--sel-border); }
-.seg button.active, .chip.active { color: var(--text); background: var(--accent-soft); border-color: var(--sel-border); box-shadow: inset 0 0 0 1px var(--sel-border); }
+.seg button.active, .seg a.active, .chip.active { color: var(--text); background: var(--accent-soft); border-color: var(--sel-border); box-shadow: inset 0 0 0 1px var(--sel-border); }
 
 /* Stock page: Technicals and Seasonals sections */
 #technicals .tech.bare { padding: 14px 18px 18px; max-width: none; }

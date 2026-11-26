@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Movers · OpenWick</title>
+    <title>Markets · OpenWick</title>
     <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
     <link rel="stylesheet" href="/css/app.css" />
     <link rel="stylesheet" href="/css/site.css" />
@@ -12,7 +12,12 @@
     <header class="h-nav"></header>
     <main class="wrap">
       <div class="pg-head">
-        <h1>Movers</h1>
+        <h1>Markets</h1>
+        <nav class="seg" aria-label="Markets views"><a class="active" href="/movers">Movers</a><a href="/breadth">Breadth</a></nav>
+        <span class="spacer"></span>
+        <span class="sc-count" id="count"></span>
+      </div>
+      <div class="pg-tools">
         <div class="seg" id="markets">
           <button data-m="india">Indian stocks</button>
           <button data-m="crypto">Crypto</button>
@@ -24,8 +29,6 @@
           <button data-g="broad">Broad market</button>
           <button data-g="strategy">Strategy</button>
         </div>
-        <span class="spacer"></span>
-        <span class="sc-count" id="count"></span>
       </div>
       <div class="sc-wrap"><table class="sc" id="table"><tbody><tr><td><div class="skeleton"></div></td></tr></tbody></table></div>
       <div class="sc-meta"><span class="muted" id="note"></span></div>

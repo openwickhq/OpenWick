@@ -334,7 +334,7 @@ test('yahoo intraday: the latest-trade point joins its candle instead of making 
 });
 
 test('movers and breadth pages, and the index member lists they use', async () => {
-  for (const [p, title] of [['/movers', 'Movers'], ['/breadth', 'Market breadth']]) {
+  for (const [p, title] of [['/movers', 'Markets'], ['/breadth', 'Markets'], ['/markets', 'Markets']]) {
     const page = await (await fetch(`${base}${p}`)).text();
     assert.ok(page.includes(`<h1>${title}</h1>`), p);
   }

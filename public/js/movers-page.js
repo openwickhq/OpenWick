@@ -5,7 +5,7 @@ import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, pageUrl, badge, starButton, fmtCap } from "./site.js";
 import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions } from "./breadth.js";
 
-await mountSite("movers");
+await mountSite("markets");
 
 const params = new URLSearchParams(location.search);
 const TABS = {
