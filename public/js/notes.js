@@ -161,7 +161,7 @@ export function notesView({ listEl, editEl, app, onPick }) {
     const s = chartSym();
     const syms = [...new Set(notes.map((n) => n.symbol).filter(Boolean))].sort((a, b) => label(a).localeCompare(label(b)));
     if (symFilter && !syms.includes(symFilter)) symFilter = "";
-    listEl.innerHTML = `${page ? "" : `<div class="wl-top nt-top"><span class="wl-label">My Notes</span><span class="spacer"></span><button class="tb icon" id="ntExport" title="Download all notes (Markdown)">${ICON.save}</button><button class="btn small primary" id="ntNew">+ New note</button></div>`}
+    listEl.innerHTML = `${page ? "" : `<div class="wl-top nt-top"><span class="wl-label">Notes</span><span class="spacer"></span><button class="tb icon" id="ntExport" title="Download all notes (Markdown)">${ICON.save}</button><button class="btn small primary" id="ntNew">+ New note</button></div>`}
       <div class="nt-filters">
         ${s ? `<div class="nt-seg"><button data-scope="symbol" class="${scope === "symbol" ? "active" : ""}">${esc(label(s))}</button><button data-scope="all" class="${scope === "all" ? "active" : ""}">All notes</button></div>`
           : `<select class="in" id="ntSymF"><option value="">All symbols</option>${syms.map((x) => `<option value="${esc(x)}">${esc(label(x))}</option>`).join("")}</select>`}
@@ -284,7 +284,7 @@ export function notesView({ listEl, editEl, app, onPick }) {
   function drawEditor() {
     const n = editing, s = chartSym();
     const val = (v) => (v == null ? "" : esc(String(v)));
-    editEl.innerHTML = `<div class="wl-top nt-top">${page ? `<span class="nt-when">${n.updated ? `Edited ${esc(ago(n.updated))}` : "New note"}</span>` : `<button class="tb small" id="ntBack" title="Back to all notes">${ICON.back}My Notes</button>`}<span class="spacer"></span><span class="nt-saved" id="ntSaved"></span><button class="tb icon ${n.pinned ? "on" : ""}" id="ntPin" title="${n.pinned ? "Unpin" : "Pin to the top"}">${ICON.pin}</button><button class="tb icon" id="ntDel" title="Delete this note">${ICON.trash}</button></div>
+    editEl.innerHTML = `<div class="wl-top nt-top">${page ? `<span class="nt-when">${n.updated ? `Edited ${esc(ago(n.updated))}` : "New note"}</span>` : `<button class="tb small" id="ntBack" title="Back to all notes">${ICON.back}Notes</button>`}<span class="spacer"></span><span class="nt-saved" id="ntSaved"></span><button class="tb icon ${n.pinned ? "on" : ""}" id="ntPin" title="${n.pinned ? "Unpin" : "Pin to the top"}">${ICON.pin}</button><button class="tb icon" id="ntDel" title="Delete this note">${ICON.trash}</button></div>
       <div class="nt-ed">
         <div class="nt-kinds">${TYPES.map(([k, l]) => `<button data-type="${k}" class="${n.type === k ? "active" : ""}">${l}</button>`).join("")}</div>
         <input class="nt-title" id="ntTitle" maxlength="200" placeholder="${n.type === "trade" ? "e.g. RELIANCE breakout above 1,400" : n.type === "thesis" ? "e.g. Why I'm holding HDFC Bank" : n.type === "journal" ? `Journal, ${new Date().toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "Title"}" value="${val(n.title)}" />
