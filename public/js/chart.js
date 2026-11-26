@@ -40,6 +40,23 @@ export const CHART_TYPES = [
 ];
 // Chart types built from price alone, with no meaningful volume per bar.
 const PRICE_ONLY = ["renko", "linebreak", "kagi", "pnf"];
+// NSE's regular session: 09:15 to 15:30 IST, Monday to Friday.
+function nseOpen(now = Date.now()) {
+  const ist = new Date(now + 5.5 * 3600e3);
+  const day = ist.getUTCDay(), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+  return day >= 1 && day <= 5 && mins >= 9 * 60 + 15 && mins < 15 * 60 + 30;
+}
+
+// Charts refreshing by polling; when the window comes back into view they refresh at once.
+const POLLING = new Set();
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  for (const c of POLLING) {
+    clearTimeout(c.liveTimer);
+    c.liveTimer = setTimeout(c.pollTick, 0);
+  }
+});
+
 const BINANCE_WS_TF = {
   "1s": "1s",
   "1m": "1m",
@@ -1410,27 +1427,44 @@ export class ChartPane {
     };
   }
 
+  // How long to wait before the next refresh. Indian stocks and indices refresh every 2.5 s while
+  // NSE is open (5 s for the charts you aren't working on when there are more than two), and
+  // every 10 s otherwise. A hidden window refreshes every 30 s. When refreshes fail (Yahoo
+  // limits how often it answers), the wait doubles each time, up to 30 s, until one works again.
+  pollDelay() {
+    if (document.hidden) return 30000;
+    const crypto = ["BINANCE", "COINBASE", "KRAKEN", "BYBIT", "BLOFIN"].includes(exchange(this.cfg.symbol));
+    let ms = crypto ? 3000 : 10000;
+    if (!crypto && exchange(this.cfg.symbol) === "YAHOO" && /^Yahoo/.test(this.provider || "") && nseOpen()) {
+      const panes = this.app.panes?.length || 1;
+      ms = panes <= 2 || this.app.active === this ? 2500 : 5000;
+    }
+    return Math.min(30000, ms * 2 ** Math.min(this.pollFails || 0, 4));
+  }
+
   poll() {
-    const kind = ["BINANCE", "COINBASE", "KRAKEN", "BYBIT", "BLOFIN"].includes(
-      exchange(this.cfg.symbol),
-    )
-      ? 3000
-      : 10000;
     const tick = async () => {
+      const id = this.liveTimer;
       try {
         const r = await api.candles(this.cfg.symbol, this.cfg.tf, 5);
+        if (this.liveTimer !== id) return; // the chart changed symbol or stopped meanwhile
+        this.pollFails = 0;
         this.merge(r.candles);
       } catch {
-        /* keep trying */
+        this.pollFails = (this.pollFails || 0) + 1;
       }
-      this.liveTimer = setTimeout(tick, kind);
+      if (this.liveTimer === id) this.liveTimer = setTimeout(tick, this.pollDelay());
     };
-    this.liveTimer = setTimeout(tick, kind);
+    this.pollFails = 0;
+    this.pollTick = tick;
+    POLLING.add(this);
+    this.liveTimer = setTimeout(tick, this.pollDelay());
   }
 
   stopLive() {
     clearTimeout(this.liveTimer);
     this.liveTimer = null;
+    POLLING.delete(this);
     if (this.ws) {
       const ws = this.ws;
       this.ws = null;
