@@ -70,12 +70,12 @@ function drawStocks() {
   if (!st.sort) (st.sort = "changePct"), (st.dir = gain ? -1 : 1);
   const getters = { ticker: (r) => r.ticker, sector: (r) => r.sector || "", price: (r) => r.price, abs: absChange, changePct: (r) => r.changePct, marketCap: (r) => r.marketCap, fromHigh: (r) => r.fromHigh, vsSma200: (r) => r.vsSma200 };
   const rows = sortRows(list, getters);
-  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Stock", "l")}${th("sector", "Sector", "l")}${th("price", "Price")}${th("abs", "Change")}${th("changePct", "Change %")}${th("marketCap", "Market cap")}${th("fromHigh", "From 52W high")}${th("vsSma200", "vs 200-day avg")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Stock", "l")}${th("sector", "Sector", "l opt2")}${th("price", "Price")}${th("abs", "Change", "opt1")}${th("changePct", "Change %")}${th("marketCap", "Market cap")}${th("fromHigh", "From 52W high")}${th("vsSma200", "vs 200-day avg")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
     <td class="l muted">${i + 1}</td>
-    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small>${esc([r.name, r.capClass].filter(Boolean).join(" · "))}</small></span></a></div></td>
-    <td class="l muted">${esc(r.sector || "")}</td>
+    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small title="${esc(r.name || "")}">${esc([r.name, r.capClass].filter(Boolean).join(" · "))}</small></span></a></div></td>
+    <td class="l muted wrap opt2">${esc(r.sector || "")}</td>
     <td>${fmtPrice(r.price)}</td>
-    <td class="${cls(r.changePct)}">${fmtAbs(absChange(r))}</td>
+    <td class="${cls(r.changePct)} opt1">${fmtAbs(absChange(r))}</td>
     <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
     <td>${fmtCap(r.marketCap, true)}</td>
     <td class="${cls(r.fromHigh)}">${fmtPct(r.fromHigh)}</td>
@@ -100,7 +100,7 @@ function drawIndices() {
   const getters = { ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, perfW: (r) => r.perfW, perfM: (r) => r.perfM, perfY: (r) => r.perfY, up: share };
   const rows = sortRows(list, getters);
   const max = Math.max(0.5, ...rows.map((r) => Math.abs(r.changePct)));
-  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="l mv-barh">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="l mv-barh opt1">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week", "opt2")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
     const w = (Math.abs(r.changePct) / max) * 50;
     const pos = r.changePct >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
     const b = breadth.get(r.symbol);
@@ -109,9 +109,9 @@ function drawIndices() {
     <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker.replace(/^(NIFTY|BSE) /, ""))}<span><b>${esc(r.ticker)}</b><small>${esc([r.sector, r.members ? `${r.members} stocks` : ""].filter(Boolean).join(" · "))}</small></span></a></div></td>
     <td>${fmtPrice(r.price)}</td>
     <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
-    <td class="l mv-bar"><span class="track"><span class="fill ${cls(r.changePct)}" style="${pos}"></span></span></td>
+    <td class="l mv-bar opt1"><span class="track"><span class="fill ${cls(r.changePct)}" style="${pos}"></span></span></td>
     <td>${b?.moved.length ? `<a class="mv-up" href="/breadth?index=${slugOf(r.ticker)}" title="Breadth of ${esc(r.ticker)}">${b.up}/${b.moved.length}</a>` : '<span class="muted">—</span>'}</td>
-    <td class="${cls(r.perfW)}">${fmtPct(r.perfW)}</td>
+    <td class="${cls(r.perfW)} opt2">${fmtPct(r.perfW)}</td>
     <td class="${cls(r.perfM)}">${fmtPct(r.perfM)}</td>
     <td class="${cls(r.perfY)}">${fmtPct(r.perfY)}</td>
   </tr>`;
@@ -132,10 +132,10 @@ function drawCoins() {
   if (!st.sort) (st.sort = biggest ? "rank" : "changePct"), (st.dir = biggest || !gain ? 1 : -1);
   const getters = { rank: (r) => r.rank, ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, volume: (r) => r.volume, marketCap: (r) => r.marketCap };
   const rows = sortRows(list, getters);
-  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Coin", "l")}${th("rank", "Rank")}${th("price", "Price (USD)")}${th("changePct", "24h change")}${th("volume", "24h volume")}${th("marketCap", "Market cap")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Coin", "l")}${th("rank", "Rank", "opt2")}${th("price", "Price (USD)")}${th("changePct", "24h change")}${th("volume", "24h volume")}${th("marketCap", "Market cap")}</tr></thead><tbody>${rows.map((r, i) => `<tr data-href="${esc(pageUrl(r.symbol))}">
     <td class="l muted">${i + 1}</td>
-    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small>${esc(r.name || "")}</small></span></a></div></td>
-    <td class="muted" title="Rank by market cap among all coins">${r.rank ?? "—"}</td>
+    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker)}<span><b>${esc(r.ticker)}</b><small title="${esc(r.name || "")}">${esc(r.name || "")}</small></span></a></div></td>
+    <td class="muted opt2" title="Rank by market cap among all coins">${r.rank ?? "—"}</td>
     <td>${fmtPrice(r.price)}</td>
     <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
     <td>${fmtCap(r.volume)}</td>

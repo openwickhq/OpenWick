@@ -48,16 +48,16 @@ function drawTable() {
   });
   const th = (k, l, c = "") => `<th data-k="${k}" class="${c} ${st.sort === k ? "sorted" : ""}">${esc(l)}${st.sort === k ? (st.dir < 0 ? " ↓" : " ↑") : ""}</th>`;
   const meter = (x) => (x.of ? `<span class="bd-meter"><span style="width:${pct(x.n, x.of)}%"></span></span>${pct(x.n, x.of)}%` : "—");
-  $("#table").innerHTML = `<thead><tr>${th("name", "Index", "l")}${th("change", "Index today")}${th("up", "Advance / decline", "l")}${th("ratio", "A/D ratio")}${th("a50", "Above 50-day")}${th("a200", "Above 200-day")}${th("highs", "52W highs")}${th("lows", "52W lows")}${th("n", "Stocks")}</tr></thead><tbody>${list.map((r) => `<tr data-i="${r.slug}" class="${r.slug === st.index ? "bd-sel" : ""}">
+  $("#table").innerHTML = `<thead><tr>${th("name", "Index", "l")}${th("change", "Index today")}${th("up", "Advance / decline", "l")}${th("ratio", "A/D ratio", "opt2")}${th("a50", "Above 50-day", "opt1")}${th("a200", "Above 200-day")}${th("highs", "52W highs")}${th("lows", "52W lows")}${th("n", "Stocks", "opt1")}</tr></thead><tbody>${list.map((r) => `<tr data-i="${r.slug}" class="${r.slug === st.index ? "bd-sel" : ""}">
     <td class="l"><b>${esc(r.m.name)}</b></td>
     <td class="${cls(r.q.changePct)}">${fmtPct(r.q.changePct)}</td>
     <td class="l">${r.s.moved.length ? `<div class="bd-ad"><span class="up">${r.s.up}</span><span class="b-ad-bar"><span class="u" style="flex:${r.s.up}"></span><span class="f" style="flex:${r.s.flat}"></span><span class="d" style="flex:${r.s.down}"></span></span><span class="down">${r.s.down}</span></div>` : '<span class="muted">—</span>'}</td>
-    <td class="${r.ratio == null ? "" : r.ratio >= 1 ? "up" : "down"}">${r.ratio == null ? "—" : r.ratio === Infinity ? "all up" : r.ratio.toFixed(2)}</td>
-    <td>${meter(r.s.a50)}</td>
+    <td class="${r.ratio == null ? "" : r.ratio >= 1 ? "up" : "down"} opt2">${r.ratio == null ? "—" : r.ratio === Infinity ? "all up" : r.ratio.toFixed(2)}</td>
+    <td class="opt1">${meter(r.s.a50)}</td>
     <td>${meter(r.s.a200)}</td>
     <td class="${r.s.highs ? "up" : "muted"}">${r.s.highs}</td>
     <td class="${r.s.lows ? "down" : "muted"}">${r.s.lows}</td>
-    <td class="muted">${r.s.moved.length}</td>
+    <td class="muted opt1">${r.s.moved.length}</td>
   </tr>`).join("")}</tbody>`;
   $("#allNote").textContent = `${list.length} indices`;
   for (const b of $("#groups").children) b.classList.toggle("active", b.dataset.g === st.group);
