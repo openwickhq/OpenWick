@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="dark" class="page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notes · OpenWick</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/site.css" />
+  </head>
+  <body>
+    <header class="h-nav"></header>
+    <main class="wrap">
+      <div class="pg-head">
+        <h1>Notes</h1>
+        <span class="sc-count" id="ntCount"></span>
+        <span class="spacer"></span>
+        <button class="pill btnlike" id="ntExportAll" title="Download all notes as one Markdown file">Download all</button>
+        <button class="btn primary" id="ntNewTop">+ New note</button>
+      </div>
+      <div class="nt-page">
+        <aside class="nt-page-list panel" id="ntList"></aside>
+        <section class="nt-page-edit panel" id="ntEdit"></section>
+      </div>
+      <div class="sc-meta"><span class="muted">Trade ideas, investment theses and your journal, saved in your OpenWick data folder on this computer. The Notes tab on the chart page shows the same notes.</span></div>
+    </main>
+    <script type="module" src="/js/notes-page.js"></script>
+  </body>
+</html>

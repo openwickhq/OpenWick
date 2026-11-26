@@ -1740,6 +1740,7 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .nt-empty { padding: 26px 12px; text-align: center; color: var(--text); font-size: 13px; }
 .nt-empty span { display: inline-block; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .nt-ed { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.nt-ed > * { flex-shrink: 0; }
 .nt-kinds { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; }
 .nt-kinds button { border: 1px solid var(--border); background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 500; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .nt-kinds button:hover { color: var(--text); }
@@ -1761,8 +1762,32 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .nt-calc { font-size: 12px; color: var(--muted); line-height: 1.5; padding: 8px 10px; border-radius: 6px; background: var(--hover); }
 .nt-calc b { color: var(--text); font-weight: 600; }
 .nt-calc .muted { color: var(--muted); }
-.nt-body { width: 100%; min-height: 240px; flex: 1; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 13px; line-height: 1.55; padding: 10px; outline: 0; }
+.nt-body { width: 100%; min-height: 240px; flex: 1 0 auto; resize: vertical; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 13px; line-height: 1.55; padding: 10px; outline: 0; }
 .nt-body:focus { border-color: var(--control-hover, var(--muted)); }
 .nt-tagsin { width: 100%; height: 32px; font-size: 12.5px; }
 .nt-foot { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .nt-saved { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+
+/* Notes page: list on the left, the open note on the right */
+.nt-page { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; height: calc(100vh - 200px); min-height: 520px; }
+.nt-page > .panel { padding: 12px 0 0; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.nt-page-edit .nt-ed { padding: 4px 22px 20px; gap: 12px; }
+.nt-page-edit .nt-top { padding: 2px 16px 6px 22px; }
+.nt-page-edit .nt-kinds { grid-template-columns: repeat(4, 1fr); }
+.nt-page-edit .nt-trade { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nt-page-edit .nt-title { font-size: 20px; }
+.nt-page-edit .nt-body { min-height: 300px; font-size: 14px; }
+@media (max-width: 900px) { .nt-page { grid-template-columns: 1fr; height: auto; } .nt-page > .panel { max-height: none; } .nt-page-list { max-height: 420px; } .nt-page-edit .nt-trade, .nt-page-edit .nt-kinds { grid-template-columns: 1fr 1fr; } }
+.nt-card.sel { border-color: var(--control-hover, var(--muted)); background: var(--hover); }
+.nt-pick { margin: auto; max-width: 380px; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.nt-pick b { font-size: 16px; color: var(--text); }
+.nt-pick span { color: var(--muted); font-size: 13px; line-height: 1.55; }
+.nt-pick .btn { margin-top: 8px; }
+.nt-filters #ntSymF { flex: 1; }
+.nt-symq { position: relative; flex: 1; max-width: 260px; }
+.nt-symq input.in { width: 100%; height: 28px; font-size: 12.5px; }
+.nt-symres { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20; display: flex; flex-direction: column; border-radius: 8px; background: var(--panel); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); overflow: hidden; }
+.nt-symres:empty { display: none; }
+.nt-symres button { display: flex; gap: 8px; align-items: baseline; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-size: 12.5px; padding: 7px 10px; text-align: left; cursor: pointer; }
+.nt-symres button:hover { background: var(--hover); }
+.nt-symres button span { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

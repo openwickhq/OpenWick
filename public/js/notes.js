@@ -6,7 +6,10 @@
 //   Note               anything else
 // Every note can be tied to a symbol, remembers the price when it was written, and saves itself as
 // you type. The list shows the chart's symbol or everything, with a type filter and search.
+// Two layouts share this code: the chart page's side panel (list and editor take turns in one
+// box) and the Notes page (list on the left, the open note on the right).
 import { api, esc, fmtPrice, fmtPct, ticker, download } from "./api.js";
+import { localSearch } from "./sym-search.js";
 
 const TYPES = [["trade", "Trade idea"], ["thesis", "Investment thesis"], ["journal", "Journal"], ["note", "Note"]];
 const TYPE_NAME = Object.fromEntries(TYPES);
@@ -57,28 +60,42 @@ export function tradeMath(t) {
   return out;
 }
 
-export function notesPanel(side, app) {
+// Side panel on the chart page.
+export const notesPanel = (side, app) => notesView({ listEl: side, editEl: side, app });
+
+// `app` gives the chart's symbol (app.active), prices (app.prices) and setSymbol; the Notes page
+// passes a stand-in with no chart. With separate listEl and editEl, both show at once.
+export function notesView({ listEl, editEl, app, onPick }) {
+  const page = listEl !== editEl;
   let notes = null;
   let editing = null; // the note open in the editor
   let dirty = false, saveTimer = null;
-  let scope = "symbol", typeFilter = "all", query = "";
+  let scope = "symbol", typeFilter = "all", query = "", symFilter = "";
   const chartSym = () => app.active?.cfg.symbol || null;
   const label = (s) => (s ? ticker(s).replace(/\.(NS|BO)$/, "") : "");
   const priceOf = (s) => (s ? app.prices?.[s] ?? (app.active?.cfg.symbol === s ? app.active?.bars?.at(-1)?.close : null) : null);
-  const $ = (q) => side.querySelector(q);
+  const $ = (q) => editEl.querySelector(q) || listEl.querySelector(q);
 
   async function render() {
     if (!notes) {
-      side.innerHTML = '<div class="pad hint-text">Loading notes…</div>';
+      listEl.innerHTML = '<div class="pad hint-text">Loading notes…</div>';
       try {
         notes = (await api.get("/api/notes")).notes || [];
       } catch (e) {
-        side.innerHTML = `<div class="pad hint-text">Notes aren't loading right now (${esc(e.message)}).</div>`;
+        listEl.innerHTML = `<div class="pad hint-text">Notes aren't loading right now (${esc(e.message)}).</div>`;
         notes = null;
         return;
       }
     }
-    editing ? drawEditor() : drawList();
+    if (page) {
+      drawList();
+      editing ? drawEditor() : drawPlaceholder();
+    } else editing ? drawEditor() : drawList();
+    onPick?.(notes);
+  }
+  function drawPlaceholder() {
+    editEl.innerHTML = `<div class="nt-pick"><b>${notes.length ? "Pick a note on the left, or start a new one." : "Your first note"}</b><span>Write down a trade plan before you take it, why you bought a stock, or what you learned today. Notes stay on this computer.</span><button class="btn primary" id="ntNew2">+ New note</button></div>`;
+    editEl.querySelector("#ntNew2").onclick = () => openEditor(null);
   }
 
   // ---------- list ----------
@@ -86,6 +103,7 @@ export function notesPanel(side, app) {
     const s = chartSym(), q = query.trim().toLowerCase();
     return notes
       .filter((n) => scope === "all" || !s || n.symbol === s)
+      .filter((n) => !symFilter || n.symbol === symFilter)
       .filter((n) => typeFilter === "all" || n.type === typeFilter)
       .filter((n) => !q || [n.title, n.body, label(n.symbol), ...(n.tags || [])].join(" ").toLowerCase().includes(q))
       .sort((a, b) => (b.pinned - a.pinned) || Date.parse(b.updated) - Date.parse(a.updated));
@@ -121,7 +139,7 @@ export function notesPanel(side, app) {
   }
   function card(n) {
     const title = n.title || (n.body || "").trim().split("\n")[0] || TYPE_NAME[n.type];
-    return `<div class="nt-card" data-id="${esc(n.id)}">
+    return `<div class="nt-card ${editing?.id === n.id ? "sel" : ""}" data-id="${esc(n.id)}">
       <div class="nt-c-top"><span class="nt-type t-${n.type}">${TYPE_NAME[n.type]}</span>${n.symbol ? `<button class="nt-sym" data-sym="${esc(n.symbol)}" title="Open ${esc(label(n.symbol))} on the chart">${esc(label(n.symbol))}</button>` : ""}${n.pinned ? `<span class="nt-pinned" title="Pinned">${ICON.pin}</span>` : ""}<span class="spacer"></span><span class="nt-when">${esc(ago(n.updated))}</span></div>
       <div class="nt-c-title">${esc(title)}</div>
       <div class="nt-c-meta">${meta(n)}</div>
@@ -131,7 +149,9 @@ export function notesPanel(side, app) {
   }
   function drawCards() {
     const list = visible(), s = chartSym();
-    $("#ntCards").innerHTML = list.map(card).join("") || `<div class="nt-empty">${
+    const box = listEl.querySelector("#ntCards");
+    if (!box) return;
+    box.innerHTML = list.map(card).join("") || `<div class="nt-empty">${
       notes.length && !query && scope === "symbol" && s
         ? `No notes on ${esc(label(s))} yet.`
         : query || typeFilter !== "all" ? "No notes match." : "No notes yet."
@@ -139,35 +159,49 @@ export function notesPanel(side, app) {
   }
   function drawList() {
     const s = chartSym();
-    side.innerHTML = `<div class="wl-top nt-top"><span class="wl-label">Notes</span><span class="spacer"></span><button class="tb icon" id="ntExport" title="Download all notes (Markdown)">${ICON.save}</button><button class="btn small primary" id="ntNew">+ New note</button></div>
+    const syms = [...new Set(notes.map((n) => n.symbol).filter(Boolean))].sort((a, b) => label(a).localeCompare(label(b)));
+    if (symFilter && !syms.includes(symFilter)) symFilter = "";
+    listEl.innerHTML = `${page ? "" : `<div class="wl-top nt-top"><span class="wl-label">Notes</span><span class="spacer"></span><button class="tb icon" id="ntExport" title="Download all notes (Markdown)">${ICON.save}</button><button class="btn small primary" id="ntNew">+ New note</button></div>`}
       <div class="nt-filters">
-        <div class="nt-seg"><button data-scope="symbol" class="${scope === "symbol" ? "active" : ""}" ${s ? "" : "disabled"}>${s ? esc(label(s)) : "This chart"}</button><button data-scope="all" class="${scope === "all" ? "active" : ""}">All notes</button></div>
+        ${s ? `<div class="nt-seg"><button data-scope="symbol" class="${scope === "symbol" ? "active" : ""}">${esc(label(s))}</button><button data-scope="all" class="${scope === "all" ? "active" : ""}">All notes</button></div>`
+          : `<select class="in" id="ntSymF"><option value="">All symbols</option>${syms.map((x) => `<option value="${esc(x)}">${esc(label(x))}</option>`).join("")}</select>`}
         <select class="in" id="ntType"><option value="all">All kinds</option>${TYPES.map(([k, l]) => `<option value="${k}">${l}s</option>`).join("")}</select>
       </div>
       <div class="nt-search"><input class="in" id="ntQ" placeholder="Search notes and #tags" value="${esc(query)}" /></div>
       <div class="nt-cards" id="ntCards"></div>`;
-    $("#ntType").value = typeFilter;
+    listEl.querySelector("#ntType").value = typeFilter;
     drawCards();
-    $("#ntNew").onclick = () => openEditor(null);
-    $("#ntExport").onclick = exportAll;
-    side.querySelector(".nt-seg").onclick = (e) => {
+    if (!page) {
+      listEl.querySelector("#ntNew").onclick = () => openEditor(null);
+      listEl.querySelector("#ntExport").onclick = exportAll;
+    }
+    const seg = listEl.querySelector(".nt-filters .nt-seg");
+    if (seg) seg.onclick = (e) => {
       const b = e.target.closest("[data-scope]");
-      if (!b || b.disabled) return;
+      if (!b) return;
       scope = b.dataset.scope;
       drawList();
     };
-    $("#ntType").onchange = (e) => { typeFilter = e.target.value; drawCards(); };
-    $("#ntQ").oninput = (e) => { query = e.target.value; drawCards(); };
-    $("#ntCards").onclick = (e) => {
+    const symF = listEl.querySelector("#ntSymF");
+    if (symF) {
+      symF.value = symFilter;
+      symF.onchange = (e) => { symFilter = e.target.value; drawCards(); };
+    }
+    listEl.querySelector("#ntType").onchange = (e) => { typeFilter = e.target.value; drawCards(); };
+    listEl.querySelector("#ntQ").oninput = (e) => { query = e.target.value; drawCards(); };
+    listEl.querySelector("#ntCards").onclick = async (e) => {
       const sym = e.target.closest("[data-sym]")?.dataset.sym;
       if (sym) return app.setSymbol(sym);
       const id = e.target.closest("[data-id]")?.dataset.id;
-      if (id) openEditor(notes.find((n) => n.id === id));
+      if (!id || id === editing?.id) return;
+      if (page && editing) await leaveNote();
+      openEditor(notes.find((n) => n.id === id));
     };
   }
 
   // ---------- editor ----------
-  function openEditor(n) {
+  async function openEditor(n) {
+    if (page && editing && !n) await leaveNote();
     if (n) editing = structuredClone(n);
     else {
       const s = chartSym();
@@ -177,14 +211,22 @@ export function notesPanel(side, app) {
     editing.thesis ||= { horizon: "1-3y", conviction: "medium" };
     dirty = false;
     drawEditor();
-    if (!n) $("#ntTitle").focus();
+    if (page) drawCards();
+    if (!n) editEl.querySelector("#ntTitle").focus();
   }
-  const isBlank = (n) => !n.title.trim() && (!n.body.trim() || n.body === TEMPLATE[n.type]) && !n.tags.length && !(n.type === "trade" && (n.trade.entry ?? n.trade.stop ?? n.trade.target) != null) && !(n.type === "thesis" && n.thesis.fairValue != null);
-  async function closeEditor() {
+  // Saves the open note (unless it's still blank) before another one opens.
+  async function leaveNote() {
     clearTimeout(saveTimer);
     if (dirty && !isBlank(editing)) await save();
     editing = null;
-    drawList();
+  }
+  const isBlank = (n) => !n.title.trim() && (!n.body.trim() || n.body === TEMPLATE[n.type]) && !n.tags.length && !(n.type === "trade" && (n.trade.entry ?? n.trade.stop ?? n.trade.target) != null) && !(n.type === "thesis" && n.thesis.fairValue != null);
+  async function closeEditor() {
+    await leaveNote();
+    if (page) {
+      drawPlaceholder();
+      drawCards();
+    } else drawList();
   }
   function changed() {
     dirty = true;
@@ -207,6 +249,7 @@ export function notesPanel(side, app) {
         editing.updated = out.updated;
         dirty = false;
       }
+      if (page) drawCards();
       if ($("#ntSaved")) $("#ntSaved").textContent = "Saved";
     } catch (e) {
       if ($("#ntSaved")) $("#ntSaved").textContent = `Not saved: ${e.message}`;
@@ -241,11 +284,11 @@ export function notesPanel(side, app) {
   function drawEditor() {
     const n = editing, s = chartSym();
     const val = (v) => (v == null ? "" : esc(String(v)));
-    side.innerHTML = `<div class="wl-top nt-top"><button class="tb small" id="ntBack" title="Back to all notes">${ICON.back}Notes</button><span class="spacer"></span><span class="nt-saved" id="ntSaved"></span><button class="tb icon ${n.pinned ? "on" : ""}" id="ntPin" title="${n.pinned ? "Unpin" : "Pin to the top"}">${ICON.pin}</button><button class="tb icon" id="ntDel" title="Delete this note">${ICON.trash}</button></div>
+    editEl.innerHTML = `<div class="wl-top nt-top">${page ? `<span class="nt-when">${n.updated ? `Edited ${esc(ago(n.updated))}` : "New note"}</span>` : `<button class="tb small" id="ntBack" title="Back to all notes">${ICON.back}Notes</button>`}<span class="spacer"></span><span class="nt-saved" id="ntSaved"></span><button class="tb icon ${n.pinned ? "on" : ""}" id="ntPin" title="${n.pinned ? "Unpin" : "Pin to the top"}">${ICON.pin}</button><button class="tb icon" id="ntDel" title="Delete this note">${ICON.trash}</button></div>
       <div class="nt-ed">
         <div class="nt-kinds">${TYPES.map(([k, l]) => `<button data-type="${k}" class="${n.type === k ? "active" : ""}">${l}</button>`).join("")}</div>
         <input class="nt-title" id="ntTitle" maxlength="200" placeholder="${n.type === "trade" ? "e.g. RELIANCE breakout above 1,400" : n.type === "thesis" ? "e.g. Why I'm holding HDFC Bank" : n.type === "journal" ? `Journal, ${new Date().toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "Title"}" value="${val(n.title)}" />
-        <div class="nt-symrow"><span class="muted">Symbol</span>${n.symbol ? `<button class="nt-sym" data-sym="${esc(n.symbol)}" title="Open on the chart">${esc(label(n.symbol))}</button>` : '<span class="muted">none</span>'}<span class="spacer"></span>${s && s !== n.symbol ? `<button class="tb small" id="ntUseSym">Use ${esc(label(s))}</button>` : ""}${n.symbol ? '<button class="tb small" id="ntNoSym">Remove</button>' : ""}</div>
+        <div class="nt-symrow"><span class="muted">Symbol</span>${n.symbol ? `<button class="nt-sym" data-sym="${esc(n.symbol)}" title="Open on the chart">${esc(label(n.symbol))}</button>` : '<span class="muted">none</span>'}${!s || page ? `<span class="nt-symq"><input class="in" id="ntSymQ" placeholder="${n.symbol ? "Change…" : "Search: RELIANCE, NIFTY, BTC"}" autocomplete="off" /><span class="nt-symres" id="ntSymRes"></span></span>` : ""}<span class="spacer"></span>${s && s !== n.symbol ? `<button class="tb small" id="ntUseSym">Use ${esc(label(s))}</button>` : ""}${n.symbol ? '<button class="tb small" id="ntNoSym">Remove</button>' : ""}</div>
         ${n.type === "trade" ? `<div class="nt-trade">
           <div class="nt-seg nt-side"><button data-side="long" class="${n.trade.side !== "short" ? "active up" : ""}">Long</button><button data-side="short" class="${n.trade.side === "short" ? "active down" : ""}">Short</button></div>
           <select class="in" id="ntStatus">${STATUS.map(([k, l]) => `<option value="${k}">${l}</option>`).join("")}</select>
@@ -268,7 +311,7 @@ export function notesPanel(side, app) {
     if ($("#ntHorizon")) $("#ntHorizon").value = n.thesis.horizon;
     const recalc = () => $("#ntCalc") && ($("#ntCalc").innerHTML = calcHtml());
 
-    $("#ntBack").onclick = closeEditor;
+    if ($("#ntBack")) $("#ntBack").onclick = closeEditor;
     $("#ntPin").onclick = () => { n.pinned = !n.pinned; changed(); drawEditor(); };
     $("#ntDel").onclick = async () => {
       if (!confirm("Delete this note? This can't be undone.")) return;
@@ -279,8 +322,9 @@ export function notesPanel(side, app) {
       notes = notes.filter((x) => x.id !== n.id);
       editing = null;
       drawList();
+      if (page) drawPlaceholder();
     };
-    side.querySelector(".nt-kinds").onclick = (e) => {
+    editEl.querySelector(".nt-kinds").onclick = (e) => {
       const t = e.target.closest("[data-type]")?.dataset.type;
       if (!t || t === n.type) return;
       if (!n.body.trim() || n.body === TEMPLATE[n.type]) n.body = TEMPLATE[t];
@@ -291,24 +335,49 @@ export function notesPanel(side, app) {
     $("#ntTitle").oninput = (e) => { n.title = e.target.value; changed(); };
     $("#ntBody").oninput = (e) => { n.body = e.target.value; changed(); };
     $("#ntTags").oninput = (e) => { n.tags = e.target.value.split(",").map((x) => x.trim()).filter(Boolean); changed(); };
-    side.querySelector(".nt-symrow").onclick = (e) => {
+    const symQ = editEl.querySelector("#ntSymQ");
+    if (symQ) {
+      const res = editEl.querySelector("#ntSymRes");
+      symQ.oninput = () => {
+        const hits = localSearch(symQ.value, 7);
+        res.innerHTML = hits.map((h) => `<button data-pick="${esc(h.symbol)}"><b>${esc(label(h.symbol))}</b><span>${esc(h.name || "")}</span></button>`).join("");
+      };
+      symQ.onkeydown = (e) => {
+        if (e.key === "Enter") res.querySelector("[data-pick]")?.click();
+        if (e.key === "Escape") (symQ.value = ""), (res.innerHTML = "");
+      };
+      res.onmousedown = (e) => e.preventDefault();
+      res.onclick = (e) => {
+        const sym = e.target.closest("[data-pick]")?.dataset.pick;
+        if (!sym) return;
+        n.symbol = sym;
+        n.priceAt = priceOf(sym);
+        changed();
+        drawEditor();
+        onPick?.(notes, sym, (p) => {
+          if (editing === n && n.symbol === sym && n.priceAt == null && p) (n.priceAt = p), changed(), drawEditor();
+        });
+      };
+      symQ.onblur = () => setTimeout(() => (res.innerHTML = ""), 150);
+    }
+    editEl.querySelector(".nt-symrow").onclick = (e) => {
       if (e.target.closest("#ntUseSym")) { n.symbol = s; n.priceAt = priceOf(s); changed(); return drawEditor(); }
       if (e.target.closest("#ntNoSym")) { n.symbol = null; n.priceAt = null; changed(); return drawEditor(); }
       const sym = e.target.closest("[data-sym]")?.dataset.sym;
       if (sym) app.setSymbol(sym);
     };
-    side.querySelectorAll("[data-f]").forEach((el) => (el.oninput = () => { n.trade[el.dataset.f] = num(el.value); changed(); recalc(); }));
-    side.querySelectorAll("[data-tf]").forEach((el) => (el.oninput = () => { n.thesis[el.dataset.tf] = num(el.value); changed(); recalc(); }));
-    side.querySelectorAll("[data-now]").forEach((b) => (b.onclick = (e) => {
+    editEl.querySelectorAll("[data-f]").forEach((el) => (el.oninput = () => { n.trade[el.dataset.f] = num(el.value); changed(); recalc(); }));
+    editEl.querySelectorAll("[data-tf]").forEach((el) => (el.oninput = () => { n.thesis[el.dataset.tf] = num(el.value); changed(); recalc(); }));
+    editEl.querySelectorAll("[data-now]").forEach((b) => (b.onclick = (e) => {
       e.preventDefault();
       const p = priceOf(n.symbol);
       if (!p) return;
       n.trade[b.dataset.now] = p;
-      side.querySelector(`[data-f="${b.dataset.now}"]`).value = p;
+      editEl.querySelector(`[data-f="${b.dataset.now}"]`).value = p;
       changed();
       recalc();
     }));
-    const sideSeg = side.querySelector(".nt-side");
+    const sideSeg = editEl.querySelector(".nt-side");
     if (sideSeg) sideSeg.onclick = (e) => {
       const v = e.target.closest("[data-side]")?.dataset.side;
       if (!v) return;
@@ -323,7 +392,7 @@ export function notesPanel(side, app) {
       recalc();
     };
     if ($("#ntHorizon")) $("#ntHorizon").onchange = (e) => { n.thesis.horizon = e.target.value; changed(); };
-    side.querySelector(".nt-conv")?.addEventListener("click", (e) => {
+    editEl.querySelector(".nt-conv")?.addEventListener("click", (e) => {
       const c = e.target.closest("[data-conv]")?.dataset.conv;
       if (!c) return;
       n.thesis.conviction = c;
@@ -357,6 +426,14 @@ export function notesPanel(side, app) {
     onSymbol() {
       if (notes && !editing) drawList();
     },
+    // Prices arrived (Notes page): redraw what shows them.
+    refresh() {
+      if (!notes) return;
+      drawCards();
+      if (editing && editEl.querySelector("#ntCalc")) editEl.querySelector("#ntCalc").innerHTML = calcHtml();
+    },
+    newNote: () => openEditor(null),
+    exportAll: () => notes && exportAll(),
     // Save before the panel closes or the page goes away.
     flush: () => save(),
   };

@@ -254,6 +254,7 @@ async function handle(req, res) {
     if (p === "/screener" || p === "/heatmap" || p === "/news" || p === "/movers" || p === "/breadth")
       return serveStatic(res, PUBLIC, `${p.slice(1)}.html`);
     if (p === "/markets") return serveStatic(res, PUBLIC, "movers.html");
+    if (p === "/notes") return serveStatic(res, PUBLIC, "notes.html");
     if (p === "/chart" || p === "/chart/" || p === "/index.html")
       return serveStatic(res, PUBLIC, "index.html");
     if (p.startsWith("/custom/")) return serveStatic(res, CUSTOM, p.slice(8));
