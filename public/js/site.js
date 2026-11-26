@@ -23,7 +23,7 @@ const LINKS = [
   ["heatmap", "/heatmap", "Heatmap"],
   ["news", "/news", "News"],
   ["portfolio", "/portfolio", "Portfolio"],
-  ["notes", "/notes", "Notes"],
+  ["notes", "/notes", "My Notes"],
 ];
 const themeListeners = [];
 export const onThemeChange = (fn) => themeListeners.push(fn);
