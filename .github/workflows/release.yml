@@ -23,10 +23,15 @@ jobs:
         run: npm test
       - name: Build the downloads
         run: node scripts/package.js
+      - name: Release notes from CHANGELOG.md
+        # The "## v1.2.3" section for this tag, or GitHub's generated notes if there isn't one.
+        run: |
+          awk -v v="## $GITHUB_REF_NAME" '$0 == v { on = 1; next } on && /^## / { exit } on' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then echo "NOTES=--notes-file $RUNNER_TEMP/notes.md" >> "$GITHUB_ENV"; else echo "NOTES=--generate-notes" >> "$GITHUB_ENV"; fi
       - name: Create the release as a draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --title "OpenWick $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --title "OpenWick $GITHUB_REF_NAME" $NOTES
 
   desktop:
     needs: release

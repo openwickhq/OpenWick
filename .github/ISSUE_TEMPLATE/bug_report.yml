@@ -26,6 +26,6 @@ body:
     attributes:
       label: Computer and version
       description: Your operating system, and the OpenWick version (Help → About, or `openwick version`).
-      placeholder: e.g. Windows 11, OpenWick 0.1.0
+      placeholder: e.g. Windows 11, OpenWick 0.2.0
     validations:
       required: true
