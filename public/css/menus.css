@@ -1,0 +1,150 @@
+/* One look for every dropdown in OpenWick: the drop-down lists of <select> boxes and the app's own
+   pop-up menus (top-bar menus, watchlist and star menus, drawing-tool fly-outs, search results).
+   Loaded last on every page, so it wins over the older per-menu styles.
+
+   The shell: a surface a step lighter than the page, a thin border, 10px corners, a soft shadow and
+   4px of padding. Items: 32px tall, 6px corners, a grey fill on hover, the current choice filled
+   in. Section titles are small capitals; separators are a hairline. */
+:root {
+  --menu-bg: var(--dialog, var(--panel));
+  --menu-radius: 10px;
+  --menu-shadow: 0 14px 38px -10px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --menu-item-h: 32px;
+  --menu-item-r: 6px;
+}
+[data-theme="light"] { --menu-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.06); }
+
+/* ---------- The app's own menus ---------- */
+.dd-menu, .tb-menu, .wl-menu, .add-menu, .wpop, .draw-fly, .dtb-pop, .pick-menu, .h-results {
+  background: var(--menu-bg) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--menu-radius) !important;
+  box-shadow: var(--menu-shadow) !important;
+  padding: 4px !important;
+  color: var(--text);
+}
+
+.tf-list button, .tb-menu button:not(.tpl-del), .wl-menu button:not(.tpl-del), .add-menu button,
+.wpop button, .draw-fly button, .pick-menu button, .view-menu button {
+  min-height: var(--menu-item-h);
+  height: auto !important;
+  padding: 0 10px !important;
+  border: 0;
+  border-radius: var(--menu-item-r) !important;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.3;
+  text-align: left;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+.add-menu button { display: flex; align-items: center; }
+.h-results a { padding: 7px 10px; border-radius: var(--menu-item-r); }
+
+.tf-list button:hover, .tb-menu button:not(.tpl-del):hover, .wl-menu button:not(.tpl-del):hover, .add-menu button:hover,
+.wpop button:hover, .draw-fly button:hover, .pick-menu button:hover, .view-menu button:hover,
+.h-results a:hover, .h-results a.sel { background: var(--hover) !important; }
+
+/* The current choice. */
+.tf-list button.active, .tb-menu button.on, .tb-menu button.active, .tb-menu .tpl-row.cur > button:first-child,
+.wl-menu button.current, .draw-fly button.on, .pick-menu button.on, .view-menu button.on, .cur-menu button.current {
+  background: var(--accent-soft) !important;
+  color: var(--text) !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+.wl-menu .tpl-del { border-radius: var(--menu-item-r); }
+
+/* Section titles and separators. */
+.dd-title, .tb-menu .dd-title, .tb-menu .tpl-h, .tpl-h, .draw-fly .df-h, .wpop-h, .add-menu .grp {
+  margin: 0 !important;
+  padding: 8px 10px 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+.dd-sep, .pick-menu .dd-sep, .wl-menu .sep { height: 0; margin: 4px 6px !important; border: 0; border-top: 1px solid var(--border); background: none; }
+
+/* ---------- <select> boxes ---------- */
+/* Chromium (the desktop app, and Chrome or Edge from version 135) lets a select's list be styled like
+   any menu; other browsers keep their own list, with the same closed box. */
+select, ::picker(select) { appearance: base-select; }
+select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 26px;
+  max-width: 100%;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  border: 1px solid var(--control, var(--border));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+/* The chosen option's text (see selects.js): shrinks and ends in "…" so the arrow always shows. */
+select > button.sel-fit { all: unset; display: flex; align-items: center; flex: 1 1 auto; min-width: 0; pointer-events: none; }
+select > button.sel-fit selectedcontent { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+select:hover { border-color: var(--control-hover, var(--muted)); }
+select:focus-visible { outline: none; border-color: var(--control-hover, var(--muted)); }
+/* One small chevron for every select (replacing the hand-drawn ones), turning over while open. */
+select.tb, .select-tb select { background-image: none !important; padding-right: 6px !important; }
+select::picker-icon {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: -3px 2px 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease, margin 0.15s ease;
+}
+select:open::picker-icon { transform: rotate(225deg); margin-top: 3px; }
+
+::picker(select) {
+  margin: 4px 0;
+  padding: 4px;
+  min-width: anchor-size(width);
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  background: var(--menu-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--menu-radius);
+  box-shadow: var(--menu-shadow);
+  color: var(--text);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+}
+select option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--menu-item-h);
+  padding: 0 10px;
+  border-radius: var(--menu-item-r);
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  cursor: pointer;
+}
+select option:hover, select option:focus-visible { background: var(--hover); outline: none; }
+select option:checked { background: var(--accent-soft); font-weight: 500; }
+select option:disabled { color: var(--muted); cursor: default; background: transparent; }
+select option::checkmark { order: 2; margin-left: auto; padding-left: 12px; color: var(--muted); font-size: 12px; }
+select optgroup { padding-top: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+select optgroup option { text-transform: none; letter-spacing: 0; }
+select optgroup legend { padding: 4px 10px; }
+@media (prefers-reduced-motion: reduce) { select::picker-icon { transition: none; } }

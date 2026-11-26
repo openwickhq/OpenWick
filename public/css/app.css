@@ -192,9 +192,6 @@ select.tb {
   background-size: 4px 4px;
   background-repeat: no-repeat;
 }
-select.tb option {
-  background: var(--panel);
-}
 .tb.check {
   gap: 5px;
   color: var(--muted);
@@ -1035,7 +1032,6 @@ table.t.heat td { text-align: center; } table.t.heat td.base { outline: 2px soli
 .select-tb select { appearance: none; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding: 0 16px 0 0; height: 32px;
   background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
   background-position: calc(100% - 7px) 14px, calc(100% - 3px) 14px; background-size: 4px 4px; background-repeat: no-repeat; }
-.select-tb select option { background: var(--panel); }
 .dd { position: relative; flex: none; }
 .dd-menu { display: none; position: fixed; z-index: 50; min-width: 190px; padding: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
 .dd.open .dd-menu { display: block; }
@@ -1306,7 +1302,6 @@ input.in:focus, select.in:focus, .field input:focus, .field select:focus, .searc
 .st-swatch input::-webkit-color-swatch { border: 0; border-radius: 4px; }
 .st-swatch input::-moz-color-swatch { border: 0; border-radius: 4px; }
 .st-select, .st-input { height: 34px; min-width: 180px; padding: 0 10px; border: 1px solid var(--control); border-radius: 6px; background: transparent; color: var(--text); }
-.st-select option { background: var(--dialog); }
 .st-select:focus, .st-input:focus { outline: none; border-color: var(--accent); }
 .st-input { width: 180px; }
 .st-reset { border-color: transparent; color: var(--muted); padding: 0 8px; }

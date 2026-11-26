@@ -118,7 +118,6 @@ html.page body { background: var(--bg); }
 .pill:focus-within { border-color: var(--accent); }
 .pill input, .pill select { border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; width: 64px; }
 .pill select { width: auto; max-width: 220px; cursor: pointer; }
-.pill select option { background: var(--panel); color: var(--text); }
 .pill.search input { width: 200px; }
 #forSym { width: 290px; }
 .pill svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }

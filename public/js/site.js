@@ -4,6 +4,7 @@ import { api, esc, fmtNum, ticker, logoUrl, logoImg } from "./api.js";
 import { FILTERS, POPULAR, categoryOf, recentSymbols, rememberSymbol, localSearch } from "./sym-search.js";
 import INDEX_NAMES from "./index-names.js";
 import { askText, notice } from "./dialog.js";
+import "./selects.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
 export const chartUrl = (sym) => `/chart?symbol=${encodeURIComponent(sym)}`;

@@ -17,6 +17,7 @@ import { openIndicatorPicker as openPicker } from "./ind-picker.js";
 import { openSymbolSearch } from "./sym-search.js";
 import { initPickMenus, syncPickMenus } from "./pick-menus.js";
 import { ask, askText } from "./dialog.js";
+import "./selects.js";
 
 // Drawing tool shortcuts, as in other charting apps. Alt+R stays "reset chart view".
 const DRAW_KEYS = { KeyT: "trend", KeyH: "hline", KeyJ: "hray", KeyV: "vline", KeyF: "fib", KeyC: "channel", KeyB: "rect", KeyM: "measure", KeyX: "text" };

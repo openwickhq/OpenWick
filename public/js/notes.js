@@ -13,6 +13,7 @@ import { localSearch } from "./sym-search.js";
 import { ask } from "./dialog.js";
 
 const TYPES = [["trade", "Trade idea"], ["thesis", "Investment thesis"], ["journal", "Journal"], ["note", "Note"]];
+const PLURAL = { thesis: "Investment theses", journal: "Journal entries" };
 const TYPE_NAME = Object.fromEntries(TYPES);
 const TEMPLATE = {
   trade: "Setup\n- \n\nWhy now\n- \n\nWhen I'm wrong\n- \n\nPlan (entries, exits, size)\n- \n",
@@ -166,7 +167,7 @@ export function notesView({ listEl, editEl, app, onPick }) {
       <div class="nt-filters">
         ${s ? `<div class="nt-seg"><button data-scope="symbol" class="${scope === "symbol" ? "active" : ""}">${esc(label(s))}</button><button data-scope="all" class="${scope === "all" ? "active" : ""}">All notes</button></div>`
           : `<select class="in" id="ntSymF"><option value="">All symbols</option>${syms.map((x) => `<option value="${esc(x)}">${esc(label(x))}</option>`).join("")}</select>`}
-        <select class="in" id="ntType"><option value="all">All kinds</option>${TYPES.map(([k, l]) => `<option value="${k}">${l}s</option>`).join("")}</select>
+        <select class="in" id="ntType"><option value="all">All kinds</option>${TYPES.map(([k, l]) => `<option value="${k}">${PLURAL[k] || `${l}s`}</option>`).join("")}</select>
       </div>
       <div class="nt-search"><input class="in" id="ntQ" placeholder="Search notes and #tags" value="${esc(query)}" /></div>
       <div class="nt-cards" id="ntCards"></div>`;
