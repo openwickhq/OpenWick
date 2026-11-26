@@ -1,5 +1,5 @@
 // Shared top bar for the full pages (home, screener, heatmap, news): logo, search with Ctrl+K,
-// page links, light/dark switch and the "Open chart" button.
+// page links, light/dark switch and the "Charts" button.
 import { api, esc, fmtNum, ticker, logoUrl, logoImg } from "./api.js";
 import { FILTERS, POPULAR, categoryOf, recentSymbols, rememberSymbol, localSearch } from "./sym-search.js";
 import INDEX_NAMES from "./index-names.js";
@@ -171,7 +171,7 @@ export async function mountSite(active) {
     <nav class="h-links">${LINKS.map(([k, href, label]) => `<a href="${href}" class="${k === active ? "active" : ""}">${label}</a>`).join("")}</nav>
     <span class="spacer"></span>
     <button class="h-icon" id="themeBtn" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg></button>
-    <a class="h-btn" href="/chart">Open chart</a>`;
+    <a class="h-btn" href="/chart">Charts</a>`;
   wireSearch($("#navQ"), $("#navResults"));
   // Star buttons anywhere on the page (captured first, so a star inside a link or row only opens the menu).
   document.addEventListener("click", (e) => {
