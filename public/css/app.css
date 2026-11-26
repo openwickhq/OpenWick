@@ -1073,7 +1073,9 @@ table.t.heat td { text-align: center; } table.t.heat td.base { outline: 2px soli
 
 /* watchlist */
 .wl-top { display: flex; align-items: center; gap: 2px; padding: 8px 8px 6px 12px; flex: none; }
-.wl-title { display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 5px; }
+.wl-label { font-weight: 600; font-size: 14px; color: var(--text); margin-right: 6px; }
+.wl-title { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 150px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-weight: 500; font-size: 12.5px; cursor: pointer; padding: 3px 6px 3px 9px; border-radius: 999px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wl-title:hover { color: var(--text); }
 .wl-title:hover { background: var(--hover); }
 .wl-top .tb { height: 30px; }
 .wl-cols, .wl-row { display: grid; grid-template-columns: minmax(0, 1fr) 74px 62px 58px; gap: 6px; align-items: center; padding: 0 10px 0 12px; }

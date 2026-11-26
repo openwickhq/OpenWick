@@ -1,10 +1,10 @@
 // OpenWick home page: search, market summary tiles, Indian and crypto movers, news, calendar.
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
-import { $, chartUrl, pageUrl, cls, mountSite, onThemeChange, wireSearch, ago } from "./site.js";
+import { $, chartUrl, pageUrl, cls, mountSite, onThemeChange, wireSearch, ago, badge } from "./site.js";
 import { breadthHtml } from "./breadth.js";
 
 await mountSite("home");
-onThemeChange(() => drawTiles());
+onThemeChange(() => (drawTiles(), drawWatchlist()));
 wireSearch($("#heroQ"), $("#heroResults"));
 $("#chips").innerHTML = [
   ["NIFTY 50", "NIFTY"], ["BANK NIFTY", "BANKNIFTY"], ["SENSEX", "SENSEX"], ["RELIANCE", "RELIANCE"],
@@ -54,6 +54,75 @@ async function loadTiles() {
   }));
   drawTiles();
 }
+
+// ---------- your watchlist, as cards ----------
+// One card per symbol of a watchlist: price, today's move, a 30-day line, and a background tinted
+// by how far it moved. The switch above picks the list (remembered on this computer only, so the
+// chart page keeps its own).
+const WL_MAX = 24;
+const wl = { lists: {}, name: null, quotes: {}, spark: {} };
+const shownSymbols = () => (wl.lists[wl.name] || []).filter((s) => !s.startsWith("###")).slice(0, WL_MAX);
+function drawWatchlist() {
+  const names = Object.keys(wl.lists);
+  $("#wlLists").innerHTML = names.length > 1 ? names.map((n) => `<button data-l="${esc(n)}" class="${n === wl.name ? "active" : ""}">${esc(n)}</button>`).join("") : "";
+  const all = (wl.lists[wl.name] || []).filter((s) => !s.startsWith("###"));
+  const syms = shownSymbols();
+  if (!syms.length) {
+    $("#wlSum").textContent = "";
+    $("#wlCards").innerHTML = `<div class="wl-empty">Nothing here yet. Tap the star on any stock, index or coin to add it, and it shows up here.</div>`;
+    return;
+  }
+  const moves = syms.map((s) => wl.quotes[s]?.changePct).filter((v) => v != null);
+  const up = moves.filter((v) => v > 0).length, down = moves.filter((v) => v < 0).length;
+  $("#wlSum").textContent = `${wl.name} · ${up} up · ${down} down${all.length > syms.length ? ` · first ${syms.length} of ${all.length}` : ""}`;
+  $("#wlCards").innerHTML = syms.map((s) => {
+    const q = wl.quotes[s] || {};
+    const pct = q.changePct;
+    const closes = wl.spark[s];
+    const isUp = pct != null ? pct >= 0 : closes ? closes.at(-1) >= closes[0] : true;
+    const tint = pct == null ? 0 : Math.min(22, 4 + Math.abs(pct) * 5);
+    const label = q.label || s.split(":").pop().replace(/\.(NS|BO)$/, "");
+    return `<a class="wl-card" href="${esc(pageUrl(s))}" style="--tint:${tint}%;--tc:var(${isUp ? "--up" : "--down"})">
+      <div class="wl-c-top">${badge(s, label)}<span class="wl-c-name"><b>${esc(label)}</b><small>${esc(q.title && q.title !== label ? q.title : q.market || "")}</small></span></div>
+      <div class="wl-c-mid"><span class="wl-c-px">${fmtPrice(q.price ?? closes?.at(-1))}</span><span class="wl-c-ch ${cls(pct)}">${fmtPct(pct)}</span></div>
+      ${sparkSvg(closes, isUp)}
+    </a>`;
+  }).join("");
+}
+async function loadWatchlist() {
+  try {
+    const st = (await api.get("/api/state")) || {};
+    wl.lists = st.watchlists || {};
+    const saved = localStorage.getItem("ow.homeWatchlist");
+    wl.name = wl.lists[saved] ? saved : wl.lists[st.activeWatchlist] ? st.activeWatchlist : Object.keys(wl.lists)[0] || null;
+  } catch {
+    wl.lists = {};
+  }
+  await refreshWatchlist(true);
+}
+async function refreshWatchlist(withLines) {
+  const syms = shownSymbols();
+  drawWatchlist();
+  if (!syms.length) return;
+  try {
+    Object.assign(wl.quotes, await api.quotes(syms));
+    drawWatchlist();
+  } catch { /* keep the last prices */ }
+  if (!withLines) return;
+  await Promise.all(syms.filter((s) => !wl.spark[s]).map(async (s) => {
+    try {
+      wl.spark[s] = (await api.candles(s, "1D", 30)).candles.map((c) => c.close);
+    } catch { /* no line */ }
+  }));
+  drawWatchlist();
+}
+$("#wlLists").onclick = (e) => {
+  const n = e.target.closest("[data-l]")?.dataset.l;
+  if (!n || n === wl.name) return;
+  wl.name = n;
+  localStorage.setItem("ow.homeWatchlist", n);
+  refreshWatchlist(true);
+};
 
 // ---------- lists ----------
 const listRow = (sym, title, sub, price, pct) =>
@@ -131,6 +200,7 @@ async function loadCalendar() {
 }
 
 loadTiles();
+loadWatchlist();
 loadIndia();
 loadCrypto();
 loadNews("#newsIndia", "india");
@@ -141,6 +211,7 @@ setInterval(async () => {
     tileQuotes = await api.quotes(TILES.map((t) => t[1]));
     drawTiles();
   } catch { /* keep the last prices */ }
+  refreshWatchlist(false);
 }, 15000);
 
 // The top bar sits on the photo with no background of its own until the page scrolls past the photo.
