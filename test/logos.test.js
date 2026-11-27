@@ -36,5 +36,10 @@ test('the index module lists stocks, coins and wide logos only', () => {
   const js = logos.indexJs();
   assert.match(js, /^export default \{/);
   const data = JSON.parse(js.replace(/^export default /, '').replace(/;$/, ''));
-  assert.deepEqual(data, { s: { 'M&M': 's/M&M.png' }, c: {}, w: ['s/M&M.png'] });
+  assert.deepEqual(data, { s: { 'M&M': 's/M&M.png' }, c: {}, g: {}, w: ['s/M&M.png'] });
+});
+
+test('country logos are served from their own folder, and nothing else under g/', () => {
+  for (const bad of ['g/us/../../x.png', 'g/usa/AAPL.png', 'g/US/AAPL.png', 'g/AAPL.png']) assert.equal(logos.file(bad), null, bad);
+  assert.equal(logos.file('g/us/NOPE.png'), null);
 });

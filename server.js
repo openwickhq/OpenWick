@@ -21,7 +21,11 @@ import { symbolIndex } from "./lib/symbol-index.js";
 import * as refresh from "./lib/refresh.js";
 
 // Yahoo's index codes (^NSEI, NIFTY_FIN_SERVICE.NS…) mapped to the names people know, for the pages.
-const INDEX_NAMES_JS = `export default ${JSON.stringify(Object.fromEntries(INDICES.items.map((x) => [x.y, x.n])))};\n`;
+// The other countries' indices (^GSPC -> S&P 500) are added too.
+const INDEX_NAMES_JS = `export default ${JSON.stringify(Object.fromEntries([
+  ...INDICES.items.map((x) => [x.y, x.n]),
+  ...markets.CODES.flatMap((c) => markets.list(c).indices.filter((x) => x.y).map((x) => [x.y, x.n])),
+]))};\n`;
 import * as store from "./lib/store.js";
 import * as info from "./lib/market-info.js";
 import { registerIndicator, INDICATORS } from "./public/lib/indicators.js";
@@ -32,6 +36,8 @@ import { relaunchForProxy, proxyNote } from "./lib/proxy.js";
 import { indiaEvents } from "./lib/india-calendar.js";
 import * as logos from "./lib/logos.js";
 import * as notes from "./lib/notes.js";
+import * as markets from "./lib/markets-data.js";
+import { stockId } from "./public/lib/markets.js";
 
 // Screener data by market (also what screener alerts check).
 const SCREENS = {
@@ -39,6 +45,11 @@ const SCREENS = {
   nse: () => data.nseScreener(),
   indices: () => data.indicesScreener(),
   crypto500: () => data.cryptoTop500(),
+  // Each country outside India: its main list (us, gb, jp, de, hk) and its indices (us-indices…).
+  ...Object.fromEntries(markets.CODES.flatMap((c) => [
+    [c.toLowerCase(), () => data.countryScreener(c)],
+    [`${c.toLowerCase()}-indices`, () => data.countryIndices(c)],
+  ])),
 };
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -277,15 +288,9 @@ async function handle(req, res) {
         alerts: alerts.list().filter((a) => a.active).length,
       });
     }
-    // OpenWick covers India and crypto: US stocks, ETFs and CME futures are switched off.
-    const US_ID = /(^|,)\s*(US|CME|CME_MINI):/i;
-    if (US_ID.test(q.symbol || "") || US_ID.test(q.symbols || ""))
-      throw httpError(400, "US markets are switched off in OpenWick");
     if (p === "/api/probe") return send(res, 200, await data.probeAll());
     if (p === "/api/resolve") {
-      const r = await data.resolve(q.symbol);
-      if (["US", "CME"].includes(r.exchange)) throw httpError(400, "US markets are switched off in OpenWick");
-      return send(res, 200, r);
+      return send(res, 200, await data.resolve(q.symbol));
     }
     if (p === "/api/search") return send(res, 200, await data.search(q.q));
     if (p === "/api/spread") return send(res, 200, await data.getSpread(q.symbol));
@@ -296,8 +301,17 @@ async function handle(req, res) {
         await data.getCandles(q.symbol, q.tf || "1D", q.limit),
       );
     // The indices whose member stocks we know (for breadth and movers within an index).
-    if (p === "/api/index-members")
+    // ?country=US (GB, JP, DE, HK) for another country's; India's otherwise.
+    if (p === "/api/index-members") {
+      const c = String(q.country || "IN").toUpperCase();
+      if (markets.isCountry(c)) {
+        markets.touch(c);
+        return send(res, 200, markets.list(c).indices.filter((x) => x.mem?.length).map((x) => ({ symbol: markets.indexId(x), name: x.n, members: x.mem.map((s) => stockId(c, s)) })));
+      }
       return send(res, 200, INDICES.items.filter((x) => x.mem?.length).map((x) => ({ symbol: `YAHOO:${x.y}`, name: x.n, members: x.mem })));
+    }
+    // The countries outside India: when each was last opened, and its company figures' state.
+    if (p === "/api/markets") return send(res, 200, markets.info());
     if (p === "/api/quotes")
       return send(
         res,
@@ -347,7 +361,7 @@ async function handle(req, res) {
     }
     if (p === "/api/screener") {
       const u = q.universe || "crypto";
-      if (!SCREENS[u]) throw httpError(400, "Pick nse, indices, crypto500 or crypto");
+      if (!SCREENS[u]) throw httpError(400, `Pick one of ${Object.keys(SCREENS).join(", ")}`);
       const rows = await SCREENS[u]();
       return send(res, 200, rows);
     }
@@ -655,6 +669,12 @@ if (isMain) {
   if (!process.env.OW_OFFLINE) screenAlerts.start((u) => SCREENS[u]());
   refresh.startAutoRefresh((m) => console.log(`  ${m}`));
   logos.startAutoDownload((m) => console.log(`  ${m}`));
+  markets.setHooks({
+    fx: async (pairs) => Object.fromEntries(Object.entries(await data.yahooSpark(pairs)).map(([k, v]) => [k, v.price])),
+    logos: (c) => logos.countryNow(c, (m) => console.log(`  ${m}`)),
+    forgetLogos: (c) => logos.forgetCountry(c),
+  });
+  markets.startUpkeep((m) => console.log(`  ${m}`));
   console.log(
     `\n  OpenWick ${VERSION} is running\n\n  Open:  ${url}\n  Stop:  Ctrl+C\n  Data:  ${store.DATA_DIR}\n`,
   );

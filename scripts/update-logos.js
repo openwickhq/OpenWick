@@ -22,16 +22,20 @@ const args = process.argv.slice(2);
 const force = args.includes("--force");
 const redoWide = args.includes("--redo-wide"); // look again for companies whose saved logo is a wide wordmark
 const only = (args.find((a) => a.startsWith("--only=")) || "").slice(7);
+// --country=US (GB, JP, DE, HK): just that country's list, into data/logos/g/<code>/ (lib/markets-data.js
+// asks for this the first time a country is opened; deleting the folder forgets them).
+const country = (args.find((a) => a.startsWith("--country=")) || "").slice(10).toUpperCase();
 const limit = Number((args.find((a) => a.startsWith("--limit=")) || "").slice(8)) || Infinity; // for trying it out
 const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36";
 const MAX = 400e3;
 
 fs.mkdirSync(path.join(DIR, "s"), { recursive: true });
 fs.mkdirSync(path.join(DIR, "c"), { recursive: true });
-let index = { s: {}, c: {}, miss: {} };
+let index = { s: {}, c: {}, g: {}, miss: {} };
 try {
-  if (!force) index = { s: {}, c: {}, miss: {}, ...JSON.parse(fs.readFileSync(INDEX, "utf8")) };
+  if (!force) index = { s: {}, c: {}, g: {}, miss: {}, ...JSON.parse(fs.readFileSync(INDEX, "utf8")) };
 } catch { /* first run */ }
+index.g ||= {};
 const saveIndex = () => {
   index.updated = new Date().toISOString();
   fs.writeFileSync(`${INDEX}.tmp`, JSON.stringify(index));
@@ -259,6 +263,40 @@ const write = (kind, key, im) => {
   index[kind][key] = file;
 };
 
+if (country) {
+  // Another country: Financial Modeling Prep's public logo for the Yahoo symbol (AAPL, SHEL.L, 7203.T).
+  const code = country.replace(/[^A-Z]/g, "").slice(0, 2);
+  const stocks = JSON.parse(fs.readFileSync(path.join(root, "lib", "universe", "markets", `${code.toLowerCase()}.json`), "utf8")).items;
+  const sub = `g/${code.toLowerCase()}`;
+  fs.mkdirSync(path.join(DIR, sub), { recursive: true });
+  const have = (index.g[code] ||= {});
+  const misses = (index.miss[`g:${code}`] ||= {});
+  const retryAfter = Date.now() - 25 * 86400e3;
+  const todo = stocks.filter((x) => !have[x.s] && !(misses[x.s] > retryAfter)).slice(0, limit);
+  log(`${code}: ${stocks.length} companies, ${todo.length} logos to fetch`);
+  let n = 0;
+  await pool(todo, 6, async (x) => {
+    const im = await tryImage(`https://financialmodelingprep.com/image-stock/${encodeURIComponent(x.s)}.png`, { anyShape: true }).catch(() => null);
+    if (im) {
+      const file = `${sub}/${x.s.replace(/[^A-Za-z0-9&_-]/g, "_")}.${im.ext}`;
+      fs.writeFileSync(path.join(DIR, file), im.buf);
+      have[x.s] = file;
+      delete misses[x.s];
+      n++;
+    } else misses[x.s] = Date.now();
+  });
+  // Merged into the index as it is now on disk, in case the main logo download saved meanwhile.
+  try { index = { s: {}, c: {}, g: {}, miss: {}, ...JSON.parse(fs.readFileSync(INDEX, "utf8")) }; } catch { /* first run */ }
+  index.g = { ...(index.g || {}), [code]: have };
+  index.miss = { ...(index.miss || {}), [`g:${code}`]: misses };
+  index.w = (index.w || []).filter((f) => !f.startsWith(`${sub}/`));
+  for (const f of Object.values(have)) {
+    try { if (!squareish(sniff(fs.readFileSync(path.join(DIR, f))))) index.w.push(f); } catch { /* gone */ }
+  }
+  saveIndex();
+  log(`Done: ${n} new ${code} logos (${Object.keys(have).length} in all)`);
+  process.exit(0);
+}
 if (only !== "stocks") {
   const coins = JSON.parse(fs.readFileSync(listPath("crypto500.json"), "utf8")).items;
   const todo = coins.filter((x) => x.b && !index.c[x.b]).slice(0, limit);
@@ -304,7 +342,7 @@ if (only !== "crypto") {
 saveIndex();
 // Remove files no longer listed (a logo replaced by one of another type), and note which logos are
 // wide wordmarks: the app shows the left end of those (usually the company's mark) instead.
-index.w = [];
+index.w = (index.w || []).filter((f) => f.startsWith("g/"));
 for (const kind of ["s", "c"]) {
   const used = new Set(Object.values(index[kind]));
   for (const f of fs.readdirSync(path.join(DIR, kind))) {

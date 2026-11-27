@@ -247,7 +247,7 @@ test('symbol index for the instant search', async () => {
   const rows = JSON.parse(js.slice(js.indexOf('['), js.lastIndexOf(']') + 1));
   assert.ok(rows.length > 100);
   assert.ok(rows.some((r) => r[0] === 'YAHOO:^NSEI' && r[2] === 'index' && r[4].includes('NIFTY')));
-  assert.ok(rows.every((r) => r.length === 5 && ['index', 'stock', 'crypto', 'forex'].includes(r[2])));
+  assert.ok(rows.every((r) => r.length === 5 && ['index', 'stock', 'etf', 'crypto', 'forex'].includes(r[2])));
 });
 
 test('lists: a refreshed copy in OW_LISTS_DIR is used unless the shipped one is newer', async () => {

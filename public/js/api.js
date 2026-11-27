@@ -1,6 +1,7 @@
 // Thin wrapper over the local server. Writes carry the x-ow header the server requires.
 import INDEX_NAMES from "./index-names.js";
 import LOGOS from "./logo-index.js";
+import { countryOf, plainTicker } from "../lib/markets.js";
 // Settings this browser saved under the project's earlier names ("qt-", "md-", "md.") carry over
 // to the "ow" names once, so panel sizes, the screener's setup and recent searches survive renames.
 try {
@@ -99,7 +100,8 @@ export const esc = (s) =>
 // "BINANCE:BTCUSDT" -> "BTCUSDT"; a spread "SPREAD:BINANCE:BTCUSDT / BINANCE:ETHUSDT" -> "BTCUSDT/ETHUSDT".
 // What to call a symbol on screen. Indian stocks and indices come from Yahoo, whose codes
 // (^NSEI, RELIANCE.NS) stay internal: indices show their name (NIFTY 50), stocks their NSE ticker.
-const yahooName = (t) => INDEX_NAMES[t] || t.replace(/\.(NS|BO)$/, "");
+// Other countries' stocks drop their Yahoo suffix too: SHEL.L -> SHEL, 7203.T -> 7203.
+const yahooName = (t) => INDEX_NAMES[t] || plainTicker(t);
 export const ticker = (id) => {
   const s = String(id || "");
   if (s.startsWith("SPREAD:"))
@@ -115,6 +117,12 @@ export function logoUrl(sym) {
   const s = String(sym || "");
   const stock = /^YAHOO:([^^:]+)\.(NS|BO)$/.exec(s);
   if (stock) return LOGOS.s?.[stock[1]] ? `/logos/${LOGOS.s[stock[1]]}` : null;
+  // Other countries' companies: by Yahoo symbol (AAPL, SHEL.L, 7203.T), once that country was opened.
+  const c = countryOf(s)?.code;
+  if (c && c !== "CRYPTO") {
+    const f = LOGOS.g?.[c]?.[s.split(":")[1]];
+    return f ? `/logos/${f}` : null;
+  }
   if (!COIN_EX.includes(exchange(s))) return null;
   const base = s.split(":")[1].toUpperCase().replace(/\.P$|-PERP$/, "").replace(/-.*$/, "")
     .replace(/(USDT|USDC|FDUSD|TUSD|BUSD|USD|EUR|INR|TRY|BRL)$/, "").replace(/^XBT$/, "BTC").replace(/^XDG$/, "DOGE");
