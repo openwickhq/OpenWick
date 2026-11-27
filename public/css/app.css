@@ -1466,6 +1466,13 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .pane .cur-label { pointer-events: auto; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
 .pane .cur-label:hover { background: var(--hover); color: var(--text); }
 .pane .cur-label.converted { color: #e5a43a; }
+/* clock in the corner under the price scale: bar-close countdown on/off */
+.pane .cd-toggle { position: absolute; z-index: 4; right: 0; bottom: 0; display: grid; place-items: center; padding: 0; border: 0; border-left: 1px solid var(--chart-border); border-top: 1px solid var(--chart-border); background: var(--chart-bg); color: var(--chart-text); cursor: pointer; transition: background 0.15s ease, color 0.15s ease; }
+.pane .cd-toggle svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.pane .cd-toggle:hover { background: var(--hover); color: var(--text); }
+.pane .cd-toggle.off { color: var(--muted); opacity: 0.55; }
+.pane .cd-toggle.off svg { stroke-dasharray: 2.2 2.2; }
+.pane .cd-toggle.hidden { display: none; }
 .cur-menu { width: 270px; }
 .cur-menu .cur-list { max-height: min(380px, 55vh); overflow-y: auto; }
 .cur-menu button b { display: inline-block; width: 38px; font-weight: 600; }

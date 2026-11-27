@@ -29,6 +29,7 @@ release on GitHub.
 
 - **Search** finds stocks and indices from every country, and suggests the picked country's before you type.
 - **Big numbers** read the way each country writes them: crore and lakh crore for India, millions and billions elsewhere.
+- **Countdown on/off:** a clock button in the corner below the price scale shows or hides the countdown to the bar's close on every chart (also in Settings → Scales).
 
 ## v0.2.0
 

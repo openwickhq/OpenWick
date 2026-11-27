@@ -168,6 +168,7 @@ export class ChartPane {
     const nb = (act, title, d) => `<button data-nav="${act}" title="${title}"><svg viewBox="0 0 24 24">${d}</svg></button>`;
     el.innerHTML =
       '<div class="chart"></div><div class="cur-label hidden"></div>' +
+      '<button class="cd-toggle hidden" aria-pressed="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.5V13l2.5 1.5M10 3h4"/></svg></button>' +
       `<div class="nav-ctl">${nb("out", "Zoom out", '<path d="M6 12h12"/>')}${nb("in", "Zoom in", '<path d="M6 12h12M12 6v12"/>')}${nb("left", "Scroll left", '<path d="M14 6l-6 6 6 6"/>')}${nb("right", "Scroll right", '<path d="M10 6l6 6-6 6"/>')}${nb("reset", "Reset chart view (Alt+R)", '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4 4v4h4"/>')}</div>` +
       '<div class="legend"></div><div class="pane-msg hidden"></div><button class="to-latest hidden" title="Scroll to the latest bar"><svg viewBox="0 0 24 24"><path d="M6 7l5 5-5 5M13 7l5 5-5 5" /></svg></button>';
     this.chartEl = el.querySelector(".chart");
@@ -1197,6 +1198,15 @@ export class ChartPane {
       this.openCurrencyMenu(cur);
     });
     for (const ev of ["mousedown", "click", "dblclick", "wheel"]) box.addEventListener(ev, (e) => e.stopPropagation());
+    // The clock under the price scale: bar-close countdown on or off, for every chart (saved).
+    const cd = this.el.querySelector(".cd-toggle");
+    for (const ev of ["mousedown", "dblclick", "wheel"]) cd.addEventListener(ev, (e) => e.stopPropagation());
+    cd.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.app.settings.countdown = this.app.settings.countdown === false;
+      for (const p of this.app.panes) p.tickCountdown();
+      this.app.persist();
+    });
   }
 
   // ---------- currency ----------
@@ -1302,6 +1312,11 @@ export class ChartPane {
       cur.title = c ? (canConvert(currencyOf(this.cfg.symbol)) ? "Currency: click to show prices in another one" : "Currency") : "";
       cur.classList.toggle("hidden", !c || !scaleW);
       cur.style.width = `${scaleW}px`;
+      const cd = this.el.querySelector(".cd-toggle");
+      const axisH = this.chart.timeScale().height();
+      cd.style.width = `${scaleW}px`;
+      cd.style.height = `${axisH}px`;
+      cd.classList.toggle("hidden", !scaleW || !axisH);
       const nav = this.el.querySelector(".nav-ctl");
       nav.style.left = `${plotW / 2}px`;
       nav.style.bottom = `${this.chart.timeScale().height() + 34}px`;
@@ -1662,7 +1677,15 @@ export class ChartPane {
   }
   tickCountdown() {
     if (!this.main) return;
-    const left = this.barCloseIn();
+    const on = this.app.settings.countdown !== false;
+    const cd = this.el.querySelector(".cd-toggle");
+    if (cd && this._cdOn !== on) {
+      this._cdOn = on;
+      cd.classList.toggle("off", !on);
+      cd.setAttribute("aria-pressed", String(on));
+      cd.title = on ? "Countdown to bar close: on (click to hide it)" : "Countdown to bar close: off (click to show it)";
+    }
+    const left = on ? this.barCloseIn() : null;
     let txt = "";
     if (left != null && left > 0) {
       const s = Math.floor(left), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;

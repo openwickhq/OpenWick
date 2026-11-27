@@ -1097,7 +1097,7 @@ class App {
     const DEFAULTS = {
       body: true, border: false, wick: true, bodyUp: null, bodyDown: null, borderUp: null, borderDown: null, wickUp: null, wickDown: null,
       legendOhlc: true, legendChange: true, legendIndValues: true, legendIndArgs: true,
-      priceLine: true, priceLabel: true, utc: false, daySeparators: true,
+      priceLine: true, priceLabel: true, countdown: true, utc: false, daySeparators: true,
       grid: "both", highLow: true, scalePriceOnly: true, nseHours: true, syncCrosshair: false, corpActions: true,
       bars: 3000, stayInDrawMode: false,
     };
@@ -1126,7 +1126,7 @@ class App {
         '<p class="st-note">Colours apply to candles, hollow candles and bars. Line and area charts use the accent colour.</p>',
       status: head("Symbol") + row(check("legendOhlc", "OHLC values"), "") + row(check("legendChange", "Bar change values"), "") +
         head("Indicators") + row(check("legendIndArgs", "Arguments"), "") + row(check("legendIndValues", "Values"), ""),
-      scales: head("Price scale") + row(check("priceLine", "Last price line"), "") + row(check("priceLabel", "Last price label"), "") + row(check("highLow", "High and low price labels (bars in view)"), "") + row(check("scalePriceOnly", "Scale price chart only (lines on the price chart don't stretch it)"), "") +
+      scales: head("Price scale") + row(check("priceLine", "Last price line"), "") + row(check("priceLabel", "Last price label"), "") + row(check("countdown", "Countdown to bar close (under the last price label; also the clock below the price scale)"), "") + row(check("highLow", "High and low price labels (bars in view)"), "") + row(check("scalePriceOnly", "Scale price chart only (lines on the price chart don't stretch it)"), "") +
         head("Time scale") + row('<span>Time zone</span>', select("utc", [["false", "My local time"], ["true", "UTC"]])) +
         row(check("daySeparators", "Day separators (intraday)"), ""),
       canvas: head("Chart basic styles") + row('<span>Grid lines</span>', select("grid", [["both", "Vert and horz"], ["v", "Vert only"], ["h", "Horz only"], ["none", "None"]])) +

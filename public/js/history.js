@@ -4,7 +4,7 @@
 // Watchlists, alerts, paper trades, templates and saved layouts are left out: undo is for the chart.
 
 // Settings that are about the page around the chart rather than the chart itself.
-export const UI_ONLY_SETTINGS = new Set(["theme", "wlClosed", "wlFlaggedOnly", "wlSort", "syncSymbol", "syncReplay"]);
+export const UI_ONLY_SETTINGS = new Set(["theme", "wlClosed", "wlFlaggedOnly", "wlSort", "syncSymbol", "syncReplay", "countdown"]);
 
 export function chartSnapshot(state) {
   const settings = Object.fromEntries(
