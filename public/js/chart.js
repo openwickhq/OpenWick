@@ -19,6 +19,7 @@ import { VolumeProfile, SessionVolumeProfile } from "./volume-profile.js";
 import { SessionLayer } from "./sessions.js";
 import { StdDevChannel } from "./std-channel.js";
 import { askText } from "./dialog.js";
+import { openChartMenu, closeChartMenu } from "./chart-menu.js";
 import { exchangeOf, sessionNow, barCloseIn as sessionBarCloseIn } from "../lib/markets.js";
 
 const LW = window.LightweightCharts;
@@ -243,6 +244,18 @@ export class ChartPane {
     });
     this.chartEl.addEventListener("mousemove", (e) => (this.mods = e), true);
     this.chartEl.addEventListener("mousedown", (e) => this.startDrag(e), true);
+    // Right-click: while a drawing tool is picked it cancels the tool; otherwise the chart's menu.
+    this.chartEl.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      this.app.setActive(this);
+      if (this.app.tool !== "cursor") {
+        this.drawings.temp = null;
+        this.drawings.update();
+        return this.app.setTool("cursor");
+      }
+      openChartMenu(this, e);
+    });
+    this.chartEl.addEventListener("wheel", () => closeChartMenu(), { passive: true });
     this.drawings = new DrawingLayer(this);
     this.drawToolbar = new DrawToolbar(this);
     this.sessions = new SessionLayer(this);
@@ -428,9 +441,17 @@ export class ChartPane {
     return t - this.shift;
   }
 
+  // Screen x of a time. The chart library only places whole bar positions (it gives 0 for 12.5), so
+  // a time between two bars is placed between their x positions.
   timeToX(utc) {
     const l = this.logicalOf(utc);
-    return l == null ? null : this.chart.timeScale().logicalToCoordinate(l);
+    if (l == null) return null;
+    const ts = this.chart.timeScale();
+    const i = Math.floor(l);
+    const a = ts.logicalToCoordinate(i);
+    if (a == null || l === i) return a;
+    const b = ts.logicalToCoordinate(i + 1);
+    return b == null ? a : a + (l - i) * (b - a);
   }
 
   formatPrice(v) {
@@ -1325,16 +1346,26 @@ export class ChartPane {
     }
   }
 
-  // Brush: press, drag and let go to draw a freehand line.
+  // The bar position (with fractions) under a screen x. The chart library's own coordinateToLogical
+  // rounds to a whole bar, which made freehand strokes step from candle to candle.
+  xToLogical(x) {
+    const ts = this.chart.timeScale();
+    const a = ts.logicalToCoordinate(0), b = ts.logicalToCoordinate(1);
+    return a == null || b == null || b === a ? ts.coordinateToLogical(x) : (x - a) / (b - a);
+  }
+
+  // Brush: press, drag and let go to draw a freehand line. Every mouse sample is kept (including the
+  // in-between ones the browser groups together), at its exact position rather than the nearest
+  // candle, and the stroke is thinned and drawn as a smooth curve when you let go.
   startBrush(e) {
     const r = this.chartEl.getBoundingClientRect();
-    const ts = this.chart.timeScale();
     const at = (ev) => {
       const x = ev.clientX - r.left,
         y = ev.clientY - r.top;
-      if (y > this.chart.panes()[0].getHeight()) return null;
-      const pt = this.pointAt({ point: { x, y }, logical: ts.coordinateToLogical(x) });
-      return pt && { ...pt, x, y };
+      if (y < 0 || y > this.chart.panes()[0].getHeight()) return null;
+      const time = this.timeOfLogical(this.xToLogical(x));
+      const price = this.main.coordinateToPrice(y);
+      return time == null || price == null ? null : { time, price, x, y };
     };
     const first = at(e);
     if (!first) return;
@@ -1342,20 +1373,32 @@ export class ChartPane {
     e.preventDefault();
     const d = this.drawings;
     let last = first;
-    d.temp = { id: newUid(), type: "brush", points: [{ time: first.time, price: first.price }] };
+    const px = [[first.x, first.y]];
+    d.temp = { id: newUid(), type: "brush", width: 2, points: [{ time: first.time, price: first.price }] };
     d.update();
-    const move = (ev) => {
+    const add = (ev) => {
       const pt = at(ev);
-      if (!pt || Math.hypot(pt.x - last.x, pt.y - last.y) < 3) return;
+      if (!pt || Math.hypot(pt.x - last.x, pt.y - last.y) < 1.2) return false;
       last = pt;
+      px.push([pt.x, pt.y]);
       d.temp.points.push({ time: pt.time, price: pt.price });
-      d.update();
+      return true;
+    };
+    const move = (ev) => {
+      let changed = false;
+      for (const c of ev.getCoalescedEvents?.() || [ev]) changed = add(c) || changed;
+      if (changed) d.update();
     };
     const up = () => {
-      window.removeEventListener("mousemove", move);
+      window.removeEventListener("pointermove", move);
       window.removeEventListener("mouseup", up);
       const item = d.temp;
       d.temp = null;
+      // Thin the stroke: drop points that sit within half a pixel of the line through their neighbours.
+      if (item && item.points.length > 2) {
+        const keep = simplify(px, 0.5);
+        item.points = keep.map((k) => item.points[k]);
+      }
       if (item && item.points.length > 1) {
         d.items.push(item);
         d.selected = item;
@@ -1364,19 +1407,78 @@ export class ChartPane {
       if (!this.app.settings.stayInDrawMode) this.app.setTool("cursor");
       d.update();
     };
-    window.addEventListener("mousemove", move);
+    window.addEventListener("pointermove", move);
     window.addEventListener("mouseup", up);
   }
 
   // A drawing point moved by (dx, dy) pixels on screen (cloning puts the copy just below and right).
   shiftPoint(pt, dx, dy) {
-    const ts = this.chart.timeScale();
     const x = this.timeToX(pt.time),
       y = this.main.priceToCoordinate(pt.price);
     if (x == null || y == null) return { ...pt };
-    const time = this.timeOfLogical(ts.coordinateToLogical(x + dx));
+    const time = dx ? this.timeOfLogical(this.xToLogical(x + dx)) : pt.time;
     const price = this.main.coordinateToPrice(y + dy);
     return { ...pt, time: time ?? pt.time, price: price ?? pt.price };
+  }
+
+  // ----- drawing actions shared by the right-click menu and the keyboard -----
+  saveDrawingsNow(select = undefined) {
+    if (select !== undefined) this.drawings.selected = select;
+    this.drawings.update();
+    this.app.saveDrawings(this.cfg.symbol, this.drawings.items);
+    this.app.panels?.onObjectsChanged?.();
+  }
+  // A copy just below and right of the original, selected.
+  cloneDrawing(d = this.drawings.selected) {
+    if (!d) return false;
+    const copy = structuredClone(d);
+    copy.id = newUid();
+    delete copy.locked;
+    delete copy.hidden;
+    copy.points = d.points.map((pt) => this.shiftPoint(pt, 24, 24));
+    this.drawings.items.push(copy);
+    this.saveDrawingsNow(copy);
+    return true;
+  }
+  // The drawing copied with Ctrl+C (or the menu), pasted here: on the same chart a little offset,
+  // on another chart at the same times and prices.
+  pasteDrawing() {
+    const src = this.app.drawingClipboard;
+    if (!src) return false;
+    const copy = structuredClone(src);
+    copy.id = newUid();
+    delete copy.locked;
+    delete copy.hidden;
+    if (this.drawings.items.some((x) => x.id === src.id)) copy.points = src.points.map((pt) => this.shiftPoint(pt, 24, 24));
+    this.drawings.items.push(copy);
+    this.saveDrawingsNow(copy);
+    return true;
+  }
+  addHLine(price) {
+    if (price == null || !this.times.length) return;
+    const item = { id: newUid(), type: "hline", points: [{ time: this.timeOfLogical(this.times.length - 1), price }] };
+    this.drawings.items.push(item);
+    this.saveDrawingsNow(item);
+  }
+  // Hide (or lock) every drawing on this chart, or show (unlock) them all when they all are.
+  toggleAllDrawings(flag) {
+    const items = this.drawings.items;
+    if (!items.length) return;
+    const on = !items.every((x) => x[flag]);
+    for (const x of items) x[flag] = on;
+    if (flag === "hidden" && on) this.drawings.selected = null;
+    this.saveDrawingsNow();
+    this.app.toast(flag === "hidden" ? (on ? `${items.length} drawings hidden. Alt+Shift+H shows them.` : "Drawings shown.") : on ? "Drawings locked." : "Drawings unlocked.");
+  }
+  // Arrow keys nudge the selected drawing by a pixel (ten with Shift).
+  nudgeDrawing(dx, dy) {
+    const d = this.drawings.selected;
+    if (!d || d.locked) return false;
+    d.points = d.points.map((pt) => this.shiftPoint(pt, dx, dy));
+    clearTimeout(this._nudgeSave);
+    this.drawings.update();
+    this._nudgeSave = setTimeout(() => this.saveDrawingsNow(), 400);
+    return true;
   }
 
   deleteSelectedDrawing() {
@@ -1704,4 +1806,25 @@ export class ChartPane {
     clearInterval(this.replayTimer);
     this.chart.remove();
   }
+}
+
+// Ramer–Douglas–Peucker: the indexes of the points to keep so the line stays within `eps` pixels.
+function simplify(pts, eps) {
+  const n = pts.length, keep = new Uint8Array(n);
+  keep[0] = keep[n - 1] = 1;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    const [x1, y1] = pts[a], [x2, y2] = pts[b];
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+    let far = -1, max = eps;
+    for (let i = a + 1; i < b; i++) {
+      const dist = Math.abs(dy * pts[i][0] - dx * pts[i][1] + x2 * y1 - y2 * x1) / len;
+      if (dist > max) { max = dist; far = i; }
+    }
+    if (far >= 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(i);
+  return out;
 }

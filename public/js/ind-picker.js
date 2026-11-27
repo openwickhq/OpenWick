@@ -52,7 +52,7 @@ export function openIndicatorPicker(app) {
     </div>`,
     {
       wide: true,
-      foot: '<span class="hint-text" style="margin-right:auto">No limit per chart. Click to add; the window stays open. Your own indicators are under My scripts.</span>',
+      foot: '<span class="hint-text" style="margin-right:auto">No limit per chart. Click to add; the window stays open. Your own indicators and strategies are under My scripts.</span>',
     },
   );
   card.classList.add("ip-card");
@@ -95,8 +95,8 @@ export function openIndicatorPicker(app) {
       if (!rows.length) return (list.innerHTML = empty("Star an indicator, metric or strategy and it shows here."));
     } else if (view.sec === "mine") {
       rows = items.mine;
-      const acts = `<div class="ip-acts"><button class="ip-act" data-editor="new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Create new indicator</span></button><button class="ip-act" data-editor="open"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg><span>Indicator editor</span></button></div>`;
-      return (list.innerHTML = acts + (rows.length ? rows.map((it) => row(it, fav)).join("") : empty("Indicators you write in the Indicator editor, and strategies you save in the Strategy tester, show here.")));
+      const acts = `<div class="ip-acts"><button class="ip-act" data-editor="new"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>New indicator</span></button><button class="ip-act" data-editor="strategy"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 4 8-9"/></svg><span>New strategy</span></button><button class="ip-act" data-editor="open"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg><span>Script editor</span></button></div>`;
+      return (list.innerHTML = acts + (rows.length ? rows.map((it) => row(it, fav)).join("") : empty("Indicators and strategies you write in the Script editor, and strategies you save in the Strategy tester, show here.")));
     } else if (view.sec === "fund") {
       const t = view.tab.fund;
       rows = items.fund.filter((it) => t === "All" || it.meta === t);
@@ -129,7 +129,8 @@ export function openIndicatorPicker(app) {
     const ed = e.target.closest("[data-editor]");
     if (ed) {
       app.closeModal();
-      return app.panels.openEditor(ed.dataset.editor === "new");
+      const k = ed.dataset.editor;
+      return app.panels.openEditor(k === "new", k === "strategy" ? { template: "strat-ema" } : {});
     }
     const star = e.target.closest("[data-star]");
     if (star) {

@@ -29,6 +29,10 @@ release on GitHub.
 
 - **Search** finds stocks and indices from every country, and suggests the picked country's before you type.
 - **Big numbers** read the way each country writes them: crore and lakh crore for India, millions and billions elsewhere.
+- **Script editor, full screen:** write indicators and strategies in JavaScript with line numbers, highlighting, a console that names the line of an error, and a live preview on the active chart's bars (lines, markers, inputs to try, and a strategy's backtest). Start from six templates. Strategies written in code show in the Strategy tester under "Written in code". The Strategy tester itself has a full-screen button too.
+- **Right-click menu on the chart:** copy the price, an alert or a horizontal line at the price under the mouse, add an indicator, compare, the object tree, hide, lock or remove all drawings, remove indicators, save an image, export data and settings. On a drawing: alert, clone, copy, lock, hide, bring to front or back, remove. Right-click while drawing cancels the tool.
+- **More shortcuts:** Alt + a letter for 23 drawing tools (Alt+D pen, Alt+Y ray, Alt+P pitchfork, Alt+L long position…), Alt+A alert, / indicators, Ctrl+D clone, Ctrl+C and Ctrl+V copy a drawing to any chart, arrow keys to move a drawing, Alt+Shift+H hide all drawings, Alt+Shift+L lock them, Alt+Shift+S chart image. Press ? for the list.
+- **Smoother pen:** freehand strokes keep every mouse sample at its exact position (they used to step from candle to candle) and are drawn as smooth curves.
 - **Countdown on/off:** a clock button in the corner below the price scale shows or hides the countdown to the bar's close on every chart (also in Settings → Scales).
 
 ## v0.2.0

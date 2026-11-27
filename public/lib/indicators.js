@@ -3124,6 +3124,22 @@ export function validateIndicator(def, opts) {
   return def;
 }
 
+// The script editor's preview: a script checked against the format and made computable (for the
+// strategy tester's rules) under a temporary id, without joining the indicator list.
+export function previewIndicator(def) {
+  const full = {
+    group: "Custom",
+    overlay: true,
+    inputs: [],
+    outputs: [{ key: "value", label: def.name || def.id, kind: "line", color: "#ff9800" }],
+    ...def,
+  };
+  validateIndicator(full);
+  BY_ID[full.id] = full;
+  return full;
+}
+export const forgetPreview = (id) => { if (!INDICATORS.some((d) => d.id === id)) delete BY_ID[id]; };
+
 // Custom indicators (files in /custom) register here. calc(bars, params, ta) gets the helpers.
 // Each one is checked against the format first, so a malformed file is refused with its problems listed.
 export function registerIndicator(def) {

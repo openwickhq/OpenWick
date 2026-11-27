@@ -103,11 +103,42 @@ Then set the alert:
 
 The id is `custom:` plus the file name without `.js`. Plotted values work too: `{ "left": "sig.fast", "op": "crossesAbove", "right": "sig.slow" }`.
 
+## Strategies in code
+
+A strategy is an indicator file with a `strategy` block. Its `calc` returns `position` for every bar: `1` long, `0` flat, `-1` short (`NaN` before it has enough bars). The position is decided at a bar's close and the trade fills at the next bar's open, the same as the Strategy tester's rules.
+
+```js
+export default {
+  name: 'EMA trend strategy',
+  overlay: false,
+  strategy: { initialCapital: 10000, positionPct: 100, feePct: 0.1, slippagePct: 0.05, stopLossPct: 0, takeProfitPct: 0, trailingStopPct: 0 },
+  inputs: [{ key: 'fast', type: 'int', default: 20 }, { key: 'slow', type: 'int', default: 50 }],
+  outputs: [{ key: 'position', label: 'Position', kind: 'histogram' }],
+  calc(bars, p, ta) {
+    const close = ta.source(bars, 'close');
+    const fast = ta.ema(close, p.fast), slow = ta.ema(close, p.slow);
+    return { position: bars.map((_, i) => (Number.isNaN(slow[i]) ? NaN : fast[i] > slow[i] ? 1 : 0)) };
+  },
+};
+```
+
+Every `strategy` setting is optional: `initialCapital`, `positionPct`, `feePct` and `slippagePct` (per side), `spreadPct`, `stopLossPct`, `takeProfitPct`, `trailingStopPct`, `maxBarsInTrade` and `intrabar` (`worst`, `ohlc` or `magnifier`). Saved strategies are listed in the Strategy tester under "Written in code", where they get the full report: equity curve, trades and quant checks.
+
+## The script editor
+
+Chart page → Indicators → My scripts → Script editor (or New indicator, New strategy, or "Write in code" in the Strategy tester). It fills the window:
+
+- **Left:** templates to start from, and your saved scripts.
+- **Middle:** the code, with line numbers and highlighting. Tab and Shift+Tab indent, Enter keeps the indent, Ctrl+/ comments lines, Ctrl+Enter runs, Ctrl+S saves, Esc goes back to the chart. Errors show in the console with their line, marked in red.
+- **Right:** a live preview on the active chart's bars: the script's lines, histograms and markers, its inputs to try, and for a strategy its backtest (net profit, drawdown, trades, win rate).
+
+Saving checks the file the same way as below; a broken save never replaces a working file.
+
 ## Registering it
 
 Save the file as `custom/<name>.js`. Two ways:
 
-1. **In the app.** Open the Indicator editor tab, paste the code, press Save. It's checked before it's saved.
+1. **In the app.** Open the Script editor, paste the code, press Save (Ctrl+S). It's checked before it's saved.
 2. **As a file.** Put it in `custom/` (or ask your AI agent to). The app checks every file when it starts, and the editor tab lists any that failed with the reason.
 
 Every file is checked against this format and run once on test bars. A file that breaks a rule isn't loaded, and the message names each problem, for example:

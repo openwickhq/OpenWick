@@ -22,7 +22,14 @@ import { ask, askText } from "./dialog.js";
 import "./selects.js";
 
 // Drawing tool shortcuts, as in other charting apps. Alt+R stays "reset chart view".
-const DRAW_KEYS = { KeyT: "trend", KeyH: "hline", KeyJ: "hray", KeyV: "vline", KeyF: "fib", KeyC: "channel", KeyB: "rect", KeyM: "measure", KeyX: "text" };
+// Alt + a letter picks a drawing tool. (Alt+R resets the view and Alt+A adds an alert.)
+const DRAW_KEYS = {
+  KeyT: "trend", KeyY: "ray", KeyE: "extended", KeyH: "hline", KeyJ: "hray", KeyV: "vline", KeyK: "crossline", KeyI: "arrow",
+  KeyC: "channel", KeyF: "fib", KeyG: "fibext", KeyP: "pitchfork",
+  KeyB: "rect", KeyO: "ellipse", KeyN: "triangle", KeyD: "brush",
+  KeyM: "measure", KeyQ: "pricerange", KeyZ: "daterange", KeyL: "long", KeyS: "short",
+  KeyX: "text", KeyU: "arrowup", KeyW: "arrowdown",
+};
 const DRAW_KEYS_BY_TOOL = Object.fromEntries(Object.entries(DRAW_KEYS).map(([k, t]) => [t, k.slice(3)]));
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -1269,6 +1276,38 @@ class App {
         e.preventDefault();
         return this.resetView();
       }
+      const modalOpen = !$("#modal").classList.contains("hidden");
+      // Alt+A: an alert (on the selected line, or a new one).
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.code === "KeyA" && !typing && !modalOpen) {
+        e.preventDefault();
+        const d = this.active?.drawings.selected;
+        return d && this.lineOperandFor(d) ? this.alertOnSelectedDrawing() : this.panels.openAlertDialog();
+      }
+      // Alt+Shift+H hides or shows every drawing, Alt+Shift+L locks or unlocks them, Alt+Shift+S saves an image.
+      if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && !typing && !modalOpen) {
+        const act = { KeyH: () => this.active?.toggleAllDrawings("hidden"), KeyL: () => this.active?.toggleAllDrawings("locked"), KeyS: () => $("#snapBtn").click() }[e.code];
+        if (act) {
+          e.preventDefault();
+          return act();
+        }
+      }
+      // Ctrl+D clones the selected drawing; Ctrl+C copies it and Ctrl+V pastes it (on any chart).
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && !typing && !modalOpen) {
+        const sel = this.active?.drawings.selected;
+        if (e.code === "KeyD" && sel) {
+          e.preventDefault();
+          return this.active.cloneDrawing(sel);
+        }
+        if (e.code === "KeyC" && sel && !String(getSelection?.() || "")) {
+          e.preventDefault();
+          this.drawingClipboard = structuredClone(sel);
+          return this.toast(`${TOOL_BY_ID[sel.type]?.label || "Drawing"} copied. Ctrl+V pastes it on any chart.`);
+        }
+        if (e.code === "KeyV" && this.drawingClipboard) {
+          e.preventDefault();
+          return this.active?.pasteDrawing();
+        }
+      }
       // Ctrl+S saves the layout (asks for a name the first time).
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.code === "KeyS") {
         e.preventDefault();
@@ -1292,6 +1331,18 @@ class App {
       if (e.key === "?") {
         e.preventDefault();
         return this.openShortcuts();
+      }
+      // "/" opens the indicator picker.
+      if (e.key === "/") {
+        e.preventDefault();
+        return this.openIndicatorPicker();
+      }
+      // Arrow keys move the selected drawing a pixel at a time (Shift: ten).
+      const arrow = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+      if (arrow && this.active?.drawings.selected) {
+        const k = e.shiftKey ? 10 : 1;
+        if (this.active.nudgeDrawing(arrow[0] * k, arrow[1] * k)) e.preventDefault();
+        return;
       }
       // A number (or a comma) changes the interval; letters search for a symbol.
       if (/^[0-9,]$/.test(e.key)) {

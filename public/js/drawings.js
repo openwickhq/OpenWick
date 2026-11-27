@@ -572,10 +572,18 @@ export class DrawingLayer {
         break;
       }
       case "brush": {
+        // A smooth curve: each point is a control point, and the line passes through the midpoints
+        // between them, so the stroke has no corners however few points were kept.
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         ctx.beginPath();
-        pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.moveTo(pts[0].x, pts[0].y);
+        if (pts.length === 2) ctx.lineTo(pts[1].x, pts[1].y);
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2, my = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        if (pts.length > 2) ctx.lineTo(pts.at(-1).x, pts.at(-1).y);
         ctx.stroke();
         break;
       }

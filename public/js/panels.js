@@ -15,7 +15,8 @@ import {
   logoUrl,
   logoImg,
 } from "./api.js";
-import { BY_ID, registerIndicator } from "../lib/indicators.js";
+import { BY_ID, INDICATORS } from "../lib/indicators.js";
+import { openScriptEditor, signalRules } from "./script-editor.js";
 import { renderNews } from "./research.js";
 import { initViews } from "./views.js";
 import { objectsPanel } from "./objects.js";
@@ -61,9 +62,23 @@ export function initPanels(app) {
     if (!b) return;
     if (b.dataset.tab) showSide(b.dataset.tab, true);
   };
-  // The bottom panel holds the Strategy tester (button in the range bar) or the Indicator editor
-  // (from My scripts in the indicator picker); closed, it takes no room at all.
-  $("#bottomToggle").onclick = () => bottomEl.classList.add("collapsed");
+  // The bottom panel holds the Strategy tester (button in the range bar); closed, it takes no room
+  // at all. Its expand button fills the window with it (Esc or the button again to shrink it back).
+  // Scripts (indicators and coded strategies) are written in the full-screen script editor.
+  $("#bottomToggle").onclick = () => { bottomEl.classList.add("collapsed"); setBottomMax(false); };
+  const setBottomMax = (on) => {
+    bottomEl.classList.toggle("max", on);
+    const b = $("#bottomMax");
+    if (b) {
+      b.title = on ? "Back to the chart (Esc)" : "Full screen";
+      b.innerHTML = on ? '<svg viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>' : '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+    }
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 30);
+  };
+  $("#bottomMax").onclick = () => setBottomMax(!bottomEl.classList.contains("max"));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && bottomEl.classList.contains("max") && !document.querySelector(".ow-dlg-wrap, .se-root")) setBottomMax(false);
+  }, true);
   $("#testerBtn").onclick = () => showBottom("tester", true);
   const syncTesterBtn = () => $("#testerBtn").classList.toggle("on", bottomTab === "tester" && !bottomEl.classList.contains("collapsed"));
   new MutationObserver(syncTesterBtn).observe(bottomEl, { attributes: true, attributeFilter: ["class"] });
@@ -98,7 +113,8 @@ export function initPanels(app) {
     // Old names (links with ?tab=): paper trading has its own panel; seasonals and financials are views.
     if (t === "paper") return togglePaper(true);
     if (["seasonals", "financials", "technicals", "news"].includes(t)) return P.setView?.(t);
-    if (t !== "editor") t = "tester";
+    if (t === "editor") return openScriptEditor(app);
+    t = "tester";
     if (
       toggle &&
       t === bottomTab &&
@@ -109,7 +125,7 @@ export function initPanels(app) {
     }
     bottomTab = t;
     bottomEl.classList.remove("collapsed");
-    $("#bottomTitle").textContent = t === "editor" ? "Indicator editor" : "Strategy tester";
+    $("#bottomTitle").textContent = "Strategy tester";
     syncTesterBtn();
     return renderBottom();
   }
@@ -124,7 +140,7 @@ export function initPanels(app) {
     })[sideTab]();
   const renderBottom = () => {
     if (!bottomEl.classList.contains("collapsed"))
-      return (bottomTab === "editor" ? renderEditor : renderTester)();
+      return renderTester();
   };
 
   // ======================= WATCHLIST =======================
@@ -813,6 +829,13 @@ export function initPanels(app) {
       intrabar: "worst",
     },
   };
+  // A strategy written in code, as tester rules: trade its position output, with its own settings.
+  function codedStrategy(id) {
+    const d = BY_ID[id];
+    if (!d?.strategy) return null;
+    const settings = Object.fromEntries(Object.entries(d.strategy).filter(([k]) => ["initialCapital", "positionPct", "feePct", "slippagePct", "spreadPct", "stopLossPct", "takeProfitPct", "trailingStopPct", "maxBarsInTrade", "intrabar", "exitMatch"].includes(k)));
+    return { ...settings, ...signalRules(id) };
+  }
   function strategyToUi(s) {
     const ind = s.indicators || {};
     const g = (k) =>
@@ -851,6 +874,7 @@ export function initPanels(app) {
     const num = (k, label, step = "any") =>
       `<label class="field">${label}<input data-s="${k}" type="number" step="${step}" value="${tState.settings[k]}"></label>`;
     const saved = Object.keys(app.state.strategies || {});
+    const coded = INDICATORS.filter((d) => d.strategy && d.id.startsWith("custom:"));
     bottom.innerHTML = `<div class="tester"><div class="left">
       <div class="row-flex"><select class="in" id="tPreset"><option value="">Load a strategy…</option><optgroup label="Examples">${Object.keys(
         EXAMPLE_STRATEGIES,
@@ -858,7 +882,7 @@ export function initPanels(app) {
         .map((n) => `<option value="ex:${esc(n)}">${esc(n)}</option>`)
         .join(
           "",
-        )}</optgroup>${saved.length ? `<optgroup label="Saved">${saved.map((n) => `<option value="sv:${esc(n)}">${esc(n)}</option>`).join("")}</optgroup>` : ""}</select><button class="btn primary" id="tRun">Run on chart</button></div>
+        )}</optgroup>${saved.length ? `<optgroup label="Saved">${saved.map((n) => `<option value="sv:${esc(n)}">${esc(n)}</option>`).join("")}</optgroup>` : ""}${coded.length ? `<optgroup label="Written in code">${coded.map((d) => `<option value="cs:${esc(d.id)}">${esc(d.name)}</option>`).join("")}</optgroup>` : ""}</select><button class="btn primary" id="tRun">Run on chart</button><button class="btn" id="tCode" title="Write a strategy in JavaScript, in the full-screen script editor">Write in code</button></div>
       <p class="hint-text">Entry conditions must all be true. Exits can need all of theirs or just one. Leave a section empty to skip it. Signals use the bar's close and fill at the next bar's open.</p>
       ${group("entryLong", "Buy (enter long) when")}${group("exitLong", "Sell (exit long) when")}${group("entryShort", "Enter short when")}${group("exitShort", "Exit short when")}
       <h4>Exits</h4><div class="row-flex"><label class="field">Exit when<select class="in" data-s="exitMatch"><option value="all"${tState.settings.exitMatch === "any" ? "" : " selected"}>all exit conditions are true</option><option value="any"${tState.settings.exitMatch === "any" ? " selected" : ""}>any one exit condition is true</option></select></label>${num("maxBarsInTrade", "Exit after this many bars (0 = off)", 1)}</div>
@@ -884,12 +908,16 @@ export function initPanels(app) {
           .insertAdjacentHTML("beforeend", ruleHtml(defaultRule()));
       };
     });
+    $("#tCode").onclick = () => openScriptEditor(app, { template: "strat-ema" });
     $("#tPreset").onchange = (e) => {
       const v = e.target.value;
       if (!v) return;
       const s = v.startsWith("ex:")
         ? EXAMPLE_STRATEGIES[v.slice(3)]
-        : app.state.strategies[v.slice(3)];
+        : v.startsWith("cs:")
+          ? codedStrategy(v.slice(3))
+          : app.state.strategies[v.slice(3)];
+      if (!s) return;
       strategyToUi(s);
       tState.name = v.slice(3);
       for (const k of [
@@ -1373,108 +1401,6 @@ export function initPanels(app) {
     };
   }
 
-  // ======================= INDICATOR EDITOR =======================
-  const TEMPLATE = `export default {
-  name: 'EMA ribbon squeeze',
-  overlay: true, // true = drawn on the price chart, false = its own pane
-  inputs: [
-    { key: 'fast', label: 'Fast EMA', type: 'int', default: 8 },
-    { key: 'slow', label: 'Slow EMA', type: 'int', default: 34 },
-  ],
-  outputs: [
-    { key: 'fast', label: 'Fast', kind: 'line', color: '#26a69a' },
-    { key: 'slow', label: 'Slow', kind: 'line', color: '#ef5350' },
-  ],
-  // bars: [{ time, open, high, low, close, volume }], p: your inputs,
-  // ta: sma, ema, rma, wma, hma, rsi, atr, stdev, highest, lowest, crossover, crossunder, source, compute(...)
-  calc(bars, p, ta) {
-    const close = ta.source(bars, 'close');
-    const fast = ta.ema(close, p.fast), slow = ta.ema(close, p.slow);
-    const up = ta.crossover(fast, slow);
-    return {
-      fast,
-      slow,
-      markers: bars.filter((b, i) => up[i]).map((b) => ({ time: b.time, position: 'belowBar', shape: 'arrowUp', color: '#26a69a', text: 'Cross' })),
-    };
-  },
-};
-`;
-  let edFile = null;
-  const edListHtml = (list) =>
-    list.map((c) => `<div class="card" data-file="${esc(c.file)}"><div class="top"><span>${esc(c.file)}</span><span class="row-flex"><button class="btn small" data-act="open">Edit</button><button class="btn small" data-act="add">Add to chart</button><button class="btn small danger" data-act="del">Delete</button></span></div>${c.error ? `<div class="sub down" style="white-space:pre-line">${esc(c.error)}</div>` : ""}</div>`).join("") || '<p class="hint-text">None yet.</p>';
-  async function renderEditor() {
-    let list = [];
-    try {
-      list = await api.get("/api/custom");
-    } catch {
-      /* none */
-    }
-    bottom.innerHTML = `<div class="tester"><div class="left"><div class="row-flex"><button class="btn primary" id="edNew">New indicator</button></div>
-      <h4>Your indicators</h4><div id="edList">${edListHtml(list)}</div>
-      <p class="hint-text">Each indicator is a small JavaScript file in your <code>custom</code> folder (the desktop app: Help → Open data folder; the installed command: <code>openwick where</code>), in the format in <code>docs/custom-indicators.md</code> (start from <code>docs/indicator-template.js</code>). Each one is checked before it's saved. You can also ask your AI agent: "add an indicator to OpenWick that…" and it will write the file for you.</p></div>
-      <div class="right"><div class="row-flex"><input class="in" id="edName" placeholder="Indicator name" style="flex:1"><button class="btn" id="edSave">Save</button><button class="btn primary" id="edSaveAdd">Save and add to chart</button></div><textarea class="in" id="edCode" spellcheck="false" style="flex:1;min-height:220px"></textarea><div id="edErr" class="down" style="white-space:pre-line"></div></div></div>`;
-    const code = $("#edCode");
-    code.value = TEMPLATE;
-    $("#edName").value = "EMA ribbon squeeze";
-    code.onkeydown = (e) => {
-      if (e.key !== "Tab") return;
-      e.preventDefault();
-      const s = code.selectionStart;
-      code.setRangeText("  ", s, code.selectionEnd, "end");
-    };
-    $("#edNew").onclick = () => {
-      edFile = null;
-      code.value = TEMPLATE.replace("'EMA ribbon squeeze'", "'My indicator'");
-      $("#edName").value = "My indicator";
-    };
-    const save = async (add) => {
-      $("#edErr").textContent = "";
-      const name = $("#edName").value.trim() || "indicator";
-      let src = code.value;
-      try {
-        const r = await api.post("/api/custom", { name, code: src });
-        const def = await app.importCustom(r.file);
-        if (!def)
-          throw new Error(
-            "Saved, but the browser could not load it. Check the code.",
-          );
-        app.toast(`Saved ${r.file}`);
-        if (add) app.active.addIndicator(def.id);
-        else app.panes.forEach((p) => p.render(false));
-        edFile = r.file;
-        renderEditorList();
-      } catch (e) {
-        $("#edErr").textContent = e.message;
-      }
-    };
-    $("#edSave").onclick = () => save(false);
-    $("#edSaveAdd").onclick = () => save(true);
-    $("#edList").onclick = async (e) => {
-      const btn = e.target.closest("[data-act]");
-      if (!btn) return;
-      const file = btn.closest("[data-file]").dataset.file;
-      if (btn.dataset.act === "open") {
-        code.value = await (
-          await fetch(`/custom/${encodeURIComponent(file)}?v=${Date.now()}`)
-        ).text();
-        $("#edName").value = file.replace(/\.js$/, "").replace(/-/g, " ");
-        edFile = file;
-      }
-      if (btn.dataset.act === "add") {
-        const def = await app.importCustom(file);
-        if (def) app.active.addIndicator(def.id);
-      }
-      if (btn.dataset.act === "del" && (await ask(`Delete ${file}?`, { ok: "Delete", danger: true }))) {
-        await api.del(`/api/custom/${encodeURIComponent(file)}`);
-        renderEditor();
-      }
-    };
-  }
-  const renderEditorList = async () => {
-    const box = $("#edList");
-    if (box) box.innerHTML = edListHtml(await api.get("/api/custom").catch(() => []));
-  };
-
   // Limit and stop orders in the replay account fill when a replayed bar's range reaches them.
   function checkReplayOrders(pane, bar) {
     const p = app.state.replayPaper;
@@ -1503,12 +1429,10 @@ export function initPanels(app) {
 
   // ---------- hooks for the app ----------
   P.showBottom = showBottom;
+  P.showSide = (t) => showSide(t);
   P.togglePaper = togglePaper;
   // From My scripts in the indicator picker: the editor, optionally starting a new indicator.
-  P.openEditor = async (fresh) => {
-    await showBottom("editor");
-    if (fresh) $("#edNew")?.click();
-  };
+  P.openEditor = (fresh, opts = {}) => openScriptEditor(app, { fresh, ...opts });
   // From the indicator picker: open the Strategy tester with a strategy ("ex:Name" or "sv:Name") and run it.
   P.loadStrategy = (key) => {
     showBottom("tester");
