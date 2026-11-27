@@ -3,6 +3,33 @@
 What changed in each version of OpenWick. The section for a version is also the text of its
 release on GitHub.
 
+## v0.3.0
+
+### New
+
+- **Six countries.** A country picker in the top bar (the globe): India, USA, UK, Japan, Germany and Hong Kong. The home page, Markets, Screener, Heatmap, News and the calendar show the picked market, with crypto on every country's pages. It's guessed from your time zone and remembered; a link with `?country=US` opens that market.
+  - **USA:** S&P 500 + Nasdaq-100 (518 stocks), the S&P 500, Nasdaq, Dow Jones, Russell 2000 and VIX, and the 11 sector funds.
+  - **UK:** FTSE 350, with the FTSE 100, FTSE 250 and All-Share.
+  - **Japan:** Nikkei 225, with TOPIX.
+  - **Germany:** DAX and MDAX, with the SDAX and TecDAX.
+  - **Hong Kong:** the Hang Seng Index, with Hang Seng TECH and HS China Enterprises.
+- **Every country gets every page:** movers and breadth, the screener with company figures, the heatmap by sector, stock pages (financials, peers, index weights, news), market news from local English sources, and its economic calendar (Fed, Bank of England, Bank of Japan, ECB, China).
+- **Charts follow each exchange:** trading hours, Tokyo's and Hong Kong's lunch breaks, the bar countdown, live refresh and session shading come from the symbol's own exchange. Prices show in the right currency (pence for London shares).
+- **Portfolio for any country:** any CSV with Symbol, Quantity and Average price columns (`NASDAQ:AAPL`, `SHEL.L`, `7203.T`, `SAP.DE`, `0700.HK`), or typed in. Countries can be mixed; totals are converted at today's rates, and your sectors are compared with the country's main index.
+- **Watchlist files** read and write other exchanges' tickers (`NASDAQ:AAPL`, `LSE:SHEL`, `TSE:7203`, `XETR:SAP`, `HKEX:700`).
+
+### How data is loaded
+
+- The name lists for every country come with the app (about 150 KB in all), so search and switching are instant.
+- A country's company figures and logos download in the background the first time you open it, and refresh weekly while you keep using it.
+- A country not opened for 30 days has its figures and logos deleted; they come back the next time.
+- Prices are never saved.
+
+### Better
+
+- **Search** finds stocks and indices from every country, and suggests the picked country's before you type.
+- **Big numbers** read the way each country writes them: crore and lakh crore for India, millions and billions elsewhere.
+
 ## v0.2.0
 
 ### New
