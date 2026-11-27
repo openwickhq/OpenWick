@@ -5,6 +5,20 @@ import { api, esc, fmtPrice, fmtNum, download } from "./api.js";
 import { $, chartUrl, pageUrl, mountSite, badge, fmtCap, starButton } from "./site.js";
 import { ruleHtml, bindRules, readRules, compileRules } from "./rules.js";
 import { ask, notice } from "./dialog.js";
+import { country, home } from "./country.js";
+import { bigMoney, bigUnit, countryByCode, STOCK_COUNTRIES } from "../lib/markets.js";
+
+// The picked country's stock list and indices (nse / indices for India, us / us-indices…), and crypto.
+const C = country(), H = home();
+const STOCKS = H.universe, INDEXES = H.indices;
+// What a universe is: a stock list, an index list, or one of the crypto lists.
+const kind = (u) => (u === "crypto500" || u === "crypto" ? u : /indices$/.test(u) ? "indices" : "nse");
+const countryOfU = (u) => (u === "nse" || u === "indices" ? "IN" : countryByCode[String(u).split("-")[0].toUpperCase()]?.code || null);
+const curOf = (u) => (countryOfU(u) ? countryByCode[countryOfU(u)].cur : "USD");
+const MONEY = ["marketCap", "revenue", "netIncome"];
+// Filter boxes take big amounts in crore for India, millions elsewhere, and plain dollars for crypto.
+const unitOf = (k, u) => (MONEY.includes(k) ? (countryOfU(u) ? bigUnit(curOf(u)).label : "$") : M[k]?.unit || "");
+const scaleFor = (k, u) => (MONEY.includes(k) ? (countryOfU(u) ? bigUnit(curOf(u)).scale : 1) : M[k]?.scale || 1);
 
 // ---------- metrics ----------
 // fmt: chg = signed % in colour, pct = plain %, x = ratio, cap = market cap, cr = rupees in crore,
@@ -20,7 +34,7 @@ const M = {
   pb: { label: "P/B", fmt: "x", tip: "Price ÷ book value: market cap over shareholders' equity" },
   ps: { label: "P/S", fmt: "x", tip: "Market cap over the last 12 months' revenue" },
   evEbitda: { label: "EV/EBITDA", fmt: "x", tip: "Enterprise value (market cap + debt - cash) over EBITDA" },
-  eps: { label: "EPS (TTM)", fmt: "price", tip: "Last 12 months' net profit per share, ₹" },
+  eps: { label: "EPS (TTM)", fmt: "price", tip: "Last 12 months' net profit per share, in the currency the shares trade in (pence for London)" },
   bvps: { label: "Book value / share", fmt: "price" },
   fcfYield: { label: "FCF yield", fmt: "pct", unit: "%", tip: "Free cash flow (last year) over market cap" },
   roe: { label: "ROE", fmt: "pct", unit: "%", tip: "Return on equity: last 12 months' profit over shareholders' equity" },
@@ -57,7 +71,7 @@ const M = {
   volume: { label: "Volume (24h)", fmt: "num" },
   members: { label: "Companies", fmt: "int" },
 };
-const VIEWS = {
+const VIEWS_BY_KIND = {
   nse: {
     Overview: ["price", "changePct", "marketCap", "pe", "eps", "roe", "divYield", "revGrowth", "sector"],
     Performance: ["price", "changePct", "perfW", "perfM", "perf3M", "perf6M", "perfYTD", "perfY", "volatility"],
@@ -77,7 +91,7 @@ const VIEWS = {
   crypto: { Overview: ["price", "changePct", "change", "volume"] },
 };
 // Ready-made screens: each sets the metric filters (min/max in the units shown).
-const PRESETS = {
+const PRESETS_BY_KIND = {
   nse: [
     ["Value", "Cheap on earnings and still profitable: P/E under 15, ROE 15%+", { pe: [0, 15], roe: [15, null] }],
     ["Quality", "High return on equity, low debt, healthy margins", { roe: [20, null], de: [null, 0.5], netMargin: [10, null] }],
@@ -95,20 +109,31 @@ const PRESETS = {
     ["Oversold", "Daily RSI under 30", { rsi: [null, 30] }],
   ],
 };
-const NOTES = {
+const NOTES_BY_KIND = {
   nse: "Prices from Yahoo (can be delayed). Company figures from Yahoo's free fundamentals: consolidated results, last 12 months where available, otherwise the latest financial year. Market cap = shares × live price; sizes by SEBI rank (top 100 large, next 150 mid).",
   indices: "Prices from Yahoo. Market cap = total of the member companies (NSE member lists; BSE and newer NSE indices have none). \"Today's value only\" means there is no free past data for that index.",
   crypto500: "The 500 biggest coins with a free chart feed; market data from CoinGecko.",
   crypto: "Every Binance USDT pair; volume in USDT over 24 hours.",
 };
 
+const VIEWS = new Proxy({}, { get: (_, u) => VIEWS_BY_KIND[kind(u)] });
+const PRESETS = new Proxy({}, { get: (_, u) => PRESETS_BY_KIND[kind(u)] });
+const NOTES = new Proxy({}, {
+  get: (_, u) => countryOfU(u) && countryOfU(u) !== "IN"
+    ? kind(u) === "indices"
+      ? `Prices from Yahoo${u.startsWith("us") ? "" : " (can be delayed up to 15–20 minutes)"}. Size = the member companies' market caps added up, where OpenWick knows the members.${u.startsWith("us") ? " The S&P 500 sector funds (XLK…) stand in for sector indices." : ""}`
+      : `Prices from Yahoo${u === "us" ? "" : " (can be delayed up to 15–20 minutes)"}. Company figures from Yahoo's free fundamentals, downloaded the first time you open ${countryByCode[countryOfU(u)].name}: last 12 months where available, otherwise the latest financial year, converted to ${curOf(u)} where a company reports in another currency.${u === "gb" ? " London prices and per-share figures are in pence." : ""} Size by market cap in dollars: large from $10B, mid from $2B.`
+    : NOTES_BY_KIND[kind(u)],
+});
+
 // ---------- state (kept between visits) ----------
 const saved = JSON.parse(localStorage.getItem("ow-screener") || "{}");
 const qp = new URLSearchParams(location.search);
-// /screener?sector=IT opens the NIFTY 500 list filtered to that sector (links from stock pages).
+// /screener?sector=IT opens the picked country's list filtered to that sector (links from stock pages).
 const qSector = qp.get("sector") || "";
+const UNIVERSES = [STOCKS, INDEXES, "crypto500", "crypto"];
 const sc = {
-  universe: qSector ? "nse" : ["nse", "indices", "crypto500", "crypto"].includes(qp.get("market")) ? qp.get("market") : saved.universe || "nse",
+  universe: qSector ? STOCKS : UNIVERSES.includes(qp.get("market")) ? qp.get("market") : UNIVERSES.includes(saved.universe) ? saved.universe : STOCKS,
   view: saved.view || "Overview",
   sort: saved.sort || "marketCap",
   dir: saved.dir || -1,
@@ -124,11 +149,11 @@ const save = () =>
   localStorage.setItem("ow-screener", JSON.stringify({ universe: sc.universe, view: sc.view, sort: sc.sort, dir: sc.dir, metrics: sc.metrics, preset: sc.preset }));
 const views = () => VIEWS[sc.universe];
 const viewCols = () => views()[sc.view] || Object.values(views())[0];
-const scaleOf = (k) => (k === "marketCap" && !["nse", "indices"].includes(sc.universe) ? 1 : M[k]?.scale || 1);
+const scaleOf = (k) => scaleFor(k, sc.universe);
 
 // ---------- formatting ----------
 const signed = (v, d = 2) => `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
-const inr = () => ["nse", "indices"].includes(sc.universe);
+
 function cell(k, r) {
   const v = r[k];
   const f = M[k]?.fmt;
@@ -139,8 +164,8 @@ function cell(k, r) {
     case "chgAbs": return `<td class="${v >= 0 ? "up" : "down"}">${v >= 0 ? "+" : ""}${fmtPrice(v)}</td>`;
     case "pct": return `<td>${v.toFixed(2)}%</td>`;
     case "x": return `<td>${v.toFixed(2)}</td>`;
-    case "cap": return `<td>${fmtCap(v, inr())}</td>`;
-    case "cr": return `<td>₹${Math.round(v / 1e7).toLocaleString("en-IN")} Cr</td>`;
+    case "cap": return `<td>${fmtCap(v, curOf(sc.universe))}</td>`;
+    case "cr": return `<td>${bigMoney(v, curOf(sc.universe))}</td>`;
     case "rsi": return `<td class="${v < 30 ? "up" : v > 70 ? "down" : ""}">${v.toFixed(1)}</td>`;
     case "int": return `<td>${Math.round(v)}</td>`;
     case "num": return `<td>${fmtNum(v, 0)}</td>`;
@@ -196,14 +221,14 @@ function drawFilters() {
     .filter(([k]) => M[k])
     .map(([k, [min, max]]) => {
       const m = M[k];
-      const unit = k === "marketCap" && !inr() ? "$" : m.unit || "";
+      const unit = unitOf(k, sc.universe);
       return `<span class="pill fp" data-k="${k}" title="${esc(m.tip || "")}"><b>${esc(m.label)}</b><input data-min type="number" step="any" placeholder="min" value="${min ?? ""}">–<input data-max type="number" step="any" placeholder="max" value="${max ?? ""}">${unit ? `<span class="muted">${esc(unit)}</span>` : ""}<button class="fx" title="Remove filter">×</button></span>`;
     })
     .join("");
   $("#filters").innerHTML = `
     <label class="pill search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg><input id="fq" placeholder="Filter by name" value="${esc(sc.q)}"></label>
-    ${u === "nse" ? `<label class="pill">Size<select id="fcap"><option value="">All</option>${["Large cap", "Mid cap", "Small cap"].map((c) => `<option ${c === sc.capClass ? "selected" : ""}>${c}</option>`).join("")}</select></label>` : ""}
-    ${sectors.length > 1 ? `<label class="pill">${u === "indices" ? "Exchange" : "Sector"}<select id="fsec"><option value="">All</option>${sectors.map((s) => `<option ${s === sc.sector ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>` : ""}
+    ${kind(u) === "nse" ? `<label class="pill">Size<select id="fcap"><option value="">All</option>${["Large cap", "Mid cap", "Small cap"].map((c) => `<option ${c === sc.capClass ? "selected" : ""}>${c}</option>`).join("")}</select></label>` : ""}
+    ${sectors.length > 1 ? `<label class="pill">${u === "indices" ? "Exchange" : kind(u) === "indices" ? "Kind" : "Sector"}<select id="fsec"><option value="">All</option>${sectors.map((s) => `<option ${s === sc.sector ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>` : ""}
     ${metricPills}
     <button class="pill btnlike add" id="addFilter">+ Add filter</button>
     ${Object.keys(sc.metrics).length || sc.q || sc.sector || sc.capClass || sc.preset ? '<button class="pill btnlike" id="reset">Clear all</button>' : ""}`;
@@ -357,7 +382,10 @@ $("#markets").onclick = (e) => {
 // ---------- screener alerts ----------
 // The filters on screen (sector, size and metric ranges) saved as a server-side alert: the stocks
 // matching now are the starting point, and each stock that joins later fires an alert.
-const MARKET_NAME = { nse: "NIFTY 500", indices: "Indian indices", crypto500: "Top 500 coins", crypto: "Binance pairs" };
+const MARKET_NAME = {
+  nse: "NIFTY 500", indices: "Indian indices", crypto500: "Top 500 coins", crypto: "Binance pairs",
+  ...Object.fromEntries(STOCK_COUNTRIES.filter((c) => c.code !== "IN").flatMap((c) => [[c.code.toLowerCase(), c.list], [`${c.code.toLowerCase()}-indices`, `${c.short || c.name} indices`]])),
+};
 function screenRules() {
   return Object.entries(sc.metrics)
     .filter(([k, [min, max]]) => M[k] && (min != null || max != null))
@@ -367,8 +395,8 @@ function describeScreen(a) {
   const parts = [a.capClass, a.sector].filter(Boolean);
   for (const r of a.rules) {
     const m = M[r.key] || { label: r.key };
-    const s = r.key === "marketCap" && ["nse", "indices"].includes(a.universe) ? 1e7 : M[r.key]?.scale || 1;
-    const v = (x) => `${+(x / s).toFixed(2)}${m.unit === "%" ? "%" : m.unit ? ` ${m.unit}` : ""}`;
+    const s = scaleFor(r.key, a.universe), unit = unitOf(r.key, a.universe);
+    const v = (x) => `${+(x / s).toFixed(2)}${unit === "%" ? "%" : unit ? ` ${unit}` : ""}`;
     parts.push(r.min != null && r.max != null ? `${m.label} ${v(r.min)}–${v(r.max)}` : r.min != null ? `${m.label} ≥ ${v(r.min)}` : `${m.label} ≤ ${v(r.max)}`);
   }
   return parts.join(" · ");
@@ -411,7 +439,7 @@ $("#screenAlert").onclick = () => {
   m.className = "pf-modal";
   m.innerHTML = `<div class="pf-dialog"><h3>Alert on new matches</h3><form class="pf-form" id="saForm">
     <label>Name<input id="saName" maxlength="60" value="${esc(sc.preset || "My screen")}" /></label>
-    <p class="muted sa-desc"><b>${esc(MARKET_NAME[sc.universe])}</b>: ${esc(describeScreen(draft)) || "no filters"}.<br>${rows.length} match now. You'll get an alert when another one starts matching${["nse", "indices"].includes(sc.universe) ? ", checked every 5 minutes while the market is open" : ", checked every 5 minutes"}.${extra.length ? `<br>Not included: ${esc(extra.join(" and "))}.` : ""}</p>
+    <p class="muted sa-desc"><b>${esc(MARKET_NAME[sc.universe])}</b>: ${esc(describeScreen(draft)) || "no filters"}.<br>${rows.length} match now. You'll get an alert when another one starts matching${countryOfU(sc.universe) ? ", checked every 5 minutes while the market is open" : ", checked every 5 minutes"}.${extra.length ? `<br>Not included: ${esc(extra.join(" and "))}.` : ""}</p>
     <label>Webhook (optional: Telegram, Discord or Slack)<input id="saHook" placeholder="https://…" autocomplete="off" /></label>
     <p class="muted sa-desc">Alerts show up in the chart page's Alerts panel, as a pop-up on any open chart tab, and on the webhook if you add one.</p>
     <div class="pf-dlg-btns"><span class="spacer"></span><button type="button" class="pill btnlike" id="saNo">Cancel</button><button class="h-btn" type="submit">Create alert</button></div>
@@ -509,6 +537,13 @@ $("#scClear").onclick = () => {
 };
 
 await mountSite("screener");
+{
+  const [st, ix] = $("#markets").children;
+  st.dataset.u = STOCKS;
+  st.textContent = `${C.list} stocks`;
+  ix.dataset.u = INDEXES;
+  ix.textContent = `${H.adjective} indices`;
+}
 const startMetrics = sc.metrics, startPreset = sc.preset, startView = sc.view, startSort = sc.sort, startDir = sc.dir;
 pickMarket(sc.universe);
 // pickMarket resets filters only when the market changes; restore the saved screen for this market.

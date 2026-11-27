@@ -1,11 +1,23 @@
-// Movers: every gainer and loser of the day in NIFTY 500 (or any index whose members we know),
-// every sector, theme and market index sorted by today's move, and for crypto the 500 biggest
+// Movers for the country picked in the top bar: every gainer and loser of the day in its main list
+// (NIFTY 500, S&P 500…) or any index whose members we know, every sector and index sorted by
+// today's move, and for crypto the 500 biggest
 // coins and every 24-hour gainer and loser. The home page's short lists open here with "See all".
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, pageUrl, badge, starButton, fmtCap } from "./site.js";
-import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions } from "./breadth.js";
+import { indexMembers, rowsOf, slugOf, breadthStats, groupOf, indexOptions, sectorRows } from "./breadth.js";
+import { country, home } from "./country.js";
 
 await mountSite("markets");
+const C = country(), H = home(), INDIA = C.code === "IN";
+// The main list's slug in the "In" picker: NIFTY 500 is an index of its own; elsewhere "ALL".
+const MAIN = INDIA ? "NIFTY-500" : "ALL";
+$("#markets").querySelector('[data-m="india"]').textContent = `${H.adjective} stocks`;
+if (!INDIA) {
+  // Other countries: their indices (and US sector funds) and sectors worked out from the main list.
+  $("#groups").querySelector('[data-g="sector"]').textContent = "Sectors";
+  $("#groups").querySelector('[data-g="broad"]').textContent = "Indices";
+  $("#groups").querySelector('[data-g="strategy"]').remove();
+}
 
 const params = new URLSearchParams(location.search);
 const TABS = {
@@ -16,8 +28,9 @@ const market = params.get("market") === "crypto" ? "crypto" : "india";
 const st = {
   market,
   tab: TABS[market].some(([t]) => t === params.get("tab")) ? params.get("tab") : TABS[market][0][0],
-  index: params.get("index") || "NIFTY-500",
-  group: ["sector", "broad", "strategy"].includes(params.get("group")) ? params.get("group") : "sector",
+  index: params.get("index") || MAIN,
+  sector: params.get("sector") || "",
+  group: (INDIA ? ["sector", "broad", "strategy"] : ["sector", "broad"]).includes(params.get("group")) ? params.get("group") : "sector",
   sort: null,
   dir: -1,
 };
@@ -33,7 +46,8 @@ function save() {
   const q = new URLSearchParams(st.market === "crypto" ? { market: "crypto", tab: st.tab } : { tab: st.tab });
   if (st.market === "india") {
     if (st.tab === "sectors") q.set("group", st.group);
-    else if (st.index !== "NIFTY-500") q.set("index", st.index);
+    else if (st.sector) q.set("sector", st.sector);
+    else if (st.index !== MAIN) q.set("index", st.index);
   }
   history.replaceState(null, "", `/movers?${q}`);
 }
@@ -44,7 +58,12 @@ function drawControls() {
   for (const b of $("#groups").children) b.classList.toggle("active", b.dataset.g === st.group);
   $("#indexBox").classList.toggle("hidden", st.market === "crypto" || st.tab === "sectors");
   $("#groups").classList.toggle("hidden", st.market === "crypto" || st.tab !== "sectors");
-  if (members.length && !$("#index").options.length) $("#index").innerHTML = indexOptions(members);
+  if (members.length && !$("#index").options.length) {
+    const all = members.find((m) => m.all);
+    $("#index").innerHTML = (all ? `<option value="ALL">${esc(all.name)}</option>` : "") + indexOptions(members.filter((m) => !m.all));
+    if (st.sector) $("#index").insertAdjacentHTML("afterbegin", `<option value="SECTOR">${esc(st.sector)}</option>`);
+  }
+  if (st.sector) st.index = "SECTOR";
   if ($("#index").options.length) $("#index").value = st.index;
 }
 
@@ -62,9 +81,10 @@ function sortRows(rows, getters) {
 }
 
 function drawStocks() {
-  const index = members.find((m) => slugOf(m.name) === st.index);
-  const label = index?.name || "NIFTY 500";
-  const inIndex = rowsOf(stocks, st.index === "NIFTY-500" ? null : index).filter((r) => r.changePct != null && r.price != null);
+  const index = st.sector ? null : members.find((m) => !m.all && slugOf(m.name) === st.index);
+  const label = st.sector ? `${C.list} ${st.sector}` : index?.name || C.list;
+  const base = st.sector ? stocks.filter((r) => r.sector === st.sector) : rowsOf(stocks, st.index === MAIN ? null : index);
+  const inIndex = base.filter((r) => r.changePct != null && r.price != null);
   const gain = st.tab === "gainers";
   const list = inIndex.filter((r) => (gain ? r.changePct > 0.0001 : r.changePct < -0.0001));
   if (!st.sort) (st.sort = "changePct"), (st.dir = gain ? -1 : 1);
@@ -77,19 +97,23 @@ function drawStocks() {
     <td>${fmtPrice(r.price)}</td>
     <td class="${cls(r.changePct)} opt1">${fmtAbs(absChange(r))}</td>
     <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
-    <td>${fmtCap(r.marketCap, true)}</td>
+    <td>${fmtCap(r.marketCap, C.cur)}</td>
     <td class="${cls(r.fromHigh)}">${fmtPct(r.fromHigh)}</td>
     <td class="${cls(r.vsSma200)}">${fmtPct(r.vsSma200)}</td>
   </tr>`).join("") || `<tr><td class="l muted" colspan="9">${stocks.length ? `No ${label} stock is ${gain ? "up" : "down"} today.` : "No prices yet."}</td></tr>`}</tbody>`;
   $("#count").textContent = inIndex.length ? `${list.length} of ${inIndex.length} ${label} stocks ${gain ? "up" : "down"} today` : "";
-  $("#note").textContent = `Today's move from the previous close. Prices from Yahoo Finance; Indian prices can be delayed.${index && index.members.length > inIndex.length ? ` ${index.members.length - inIndex.length} of its ${index.members.length} stocks aren't in NIFTY 500, so they aren't shown.` : ""}`;
+  $("#note").textContent = `Today's move from the previous close. Prices from Yahoo Finance${C.code === "US" ? "" : `; ${H.adjective} prices can be delayed up to 15–20 minutes`}.${C.cur === "GBP" ? " London prices are in pence." : ""}${index && index.members.length > inIndex.length ? ` ${index.members.length - inIndex.length} of its ${index.members.length} stocks aren't in ${C.list}, so they aren't shown.` : ""}`;
 }
 
 function drawIndices() {
   const bySlug = new Map(members.map((m) => [slugOf(m.name), m]));
-  const list = indices.filter((r) => r.ticker !== "INDIA VIX" && groupOf(r.ticker) === st.group && r.changePct != null);
+  // Other countries' sectors come from the main list; their "Indices" group is every index and fund.
+  const list = !INDIA && st.group === "sector"
+    ? sectorRows(stocks).filter((r) => r.changePct != null)
+    : indices.filter((r) => !/VIX/.test(r.ticker) && (INDIA ? groupOf(r.ticker) === st.group : true) && r.changePct != null);
   if (!st.sort) (st.sort = "changePct"), (st.dir = -1);
   const breadth = new Map(list.map((r) => {
+    if (r.rows) return [r.symbol, breadthStats(r.rows)];
     const m = bySlug.get(slugOf(r.ticker));
     return [r.symbol, m ? breadthStats(rowsOf(stocks, m)) : null];
   }));
@@ -100,24 +124,28 @@ function drawIndices() {
   const getters = { ticker: (r) => r.ticker, price: (r) => r.price, changePct: (r) => r.changePct, perfW: (r) => r.perfW, perfM: (r) => r.perfM, perfY: (r) => r.perfY, up: share };
   const rows = sortRows(list, getters);
   const max = Math.max(0.5, ...rows.map((r) => Math.abs(r.changePct)));
-  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="mv-barh opt1" title="Today's move, from the zero line in the middle: right is up, left is down">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week", "opt2")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
+  $("#table").innerHTML = `<thead><tr><th class="l">#</th>${th("ticker", !INDIA && st.group === "sector" ? "Sector" : "Index", "l")}${th("price", "Price")}${th("changePct", "Change %")}<th class="mv-barh opt1" title="Today's move, from the zero line in the middle: right is up, left is down">Today</th>${th("up", "Stocks up")}${th("perfW", "1 week", "opt2")}${th("perfM", "1 month")}${th("perfY", "1 year")}</tr></thead><tbody>${rows.map((r, i) => {
     const w = (Math.abs(r.changePct) / max) * 50;
     const pos = r.changePct >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
     const b = breadth.get(r.symbol);
-    return `<tr data-href="${esc(pageUrl(r.symbol))}">
+    // A sector worked out from the list opens its gainers; an index opens its page.
+    const href = r.sectorOf ? `/movers?tab=gainers&sector=${encodeURIComponent(r.sectorOf)}` : pageUrl(r.symbol);
+    return `<tr data-href="${esc(href)}">
     <td class="l muted">${i + 1}</td>
-    <td class="l"><div class="sym-cell">${starButton(r.symbol)}<a class="sym" href="${esc(pageUrl(r.symbol))}">${badge(r.symbol, r.ticker.replace(/^(NIFTY|BSE) /, ""))}<span><b>${esc(r.ticker)}</b><small>${esc([r.sector, r.members ? `${r.members} stocks` : ""].filter(Boolean).join(" · "))}</small></span></a></div></td>
+    <td class="l"><div class="sym-cell">${r.sectorOf ? "" : starButton(r.symbol)}<a class="sym" href="${esc(href)}">${badge(r.symbol, r.ticker.replace(/^(NIFTY|BSE) /, ""))}<span><b>${esc(r.ticker)}</b><small>${esc([r.sectorOf ? `${C.list} sector` : r.sector, r.members ? `${r.members} stocks` : ""].filter(Boolean).join(" · "))}</small></span></a></div></td>
     <td>${fmtPrice(r.price)}</td>
     <td class="${cls(r.changePct)}"><b>${fmtPct(r.changePct)}</b></td>
     <td class="l mv-bar opt1"><span class="track"><span class="fill ${cls(r.changePct)}" style="${pos}"></span></span></td>
-    <td>${b?.moved.length ? `<a class="mv-up" href="/breadth?index=${slugOf(r.ticker)}" title="Breadth of ${esc(r.ticker)}">${b.up}/${b.moved.length}</a>` : '<span class="muted">—</span>'}</td>
+    <td>${b?.moved.length ? (r.sectorOf ? `<span class="mv-up">${b.up}/${b.moved.length}</span>` : `<a class="mv-up" href="/breadth?index=${slugOf(r.ticker)}" title="Breadth of ${esc(r.ticker)}">${b.up}/${b.moved.length}</a>`) : '<span class="muted">—</span>'}</td>
     <td class="${cls(r.perfW)} opt2">${fmtPct(r.perfW)}</td>
     <td class="${cls(r.perfM)}">${fmtPct(r.perfM)}</td>
     <td class="${cls(r.perfY)}">${fmtPct(r.perfY)}</td>
   </tr>`;
   }).join("") || `<tr><td class="l muted" colspan="9">No index prices yet.</td></tr>`}</tbody>`;
   $("#count").textContent = list.length ? `${list.filter((r) => r.changePct > 0).length} of ${list.length} up today` : "";
-  $("#note").textContent = "Stocks up: how many of the index's stocks rose today (for the indices whose members OpenWick knows); click it for the index's breadth.";
+  $("#note").textContent = !INDIA && st.group === "sector"
+    ? `Each sector of ${C.list}, its moves weighted by market cap. Stocks up: how many of the sector's stocks rose today. Click a sector for its gainers.`
+    : "Stocks up: how many of the index's stocks rose today (for the indices whose members OpenWick knows); click it for the index's breadth.";
 }
 
 function drawCoins() {
@@ -164,13 +192,13 @@ async function loadCoins() {
 
 async function load() {
   if (st.market === "crypto") return loadCoins();
-  const [s, ix, m] = await Promise.allSettled([api.get("/api/screener?universe=nse"), api.get("/api/screener?universe=indices"), indexMembers()]);
+  const [s, ix, m] = await Promise.allSettled([api.get(`/api/screener?universe=${H.universe}`), api.get(`/api/screener?universe=${H.indices}`), indexMembers()]);
   if (s.status === "fulfilled") stocks = s.value;
   if (ix.status === "fulfilled") indices = ix.value;
   if (m.status === "fulfilled") members = m.value;
   const failed = [s, ix].find((x) => x.status === "rejected");
   if (failed && !stocks.length && !indices.length) {
-    $("#table").innerHTML = `<tbody><tr><td class="l muted">Indian prices aren't loading right now (${esc(failed.reason.message)}).</td></tr></tbody>`;
+    $("#table").innerHTML = `<tbody><tr><td class="l muted">${esc(H.adjective)} prices aren't loading right now (${esc(failed.reason.message)}).</td></tr></tbody>`;
     return;
   }
   draw();
@@ -203,6 +231,10 @@ $("#groups").onclick = (e) => {
 };
 $("#index").onchange = (e) => {
   st.index = e.target.value;
+  if (st.index !== "SECTOR") {
+    st.sector = "";
+    $("#index").querySelector('option[value="SECTOR"]')?.remove();
+  }
   save();
   draw();
 };

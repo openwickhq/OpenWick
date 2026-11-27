@@ -1,6 +1,6 @@
 # Contributing to OpenWick
 
-Thanks for helping. OpenWick is an open-source charting platform for Indian stocks, indices and crypto that runs on your own computer.
+Thanks for helping. OpenWick is an open-source charting platform for stocks, indices and crypto (India first, plus the US, UK, Japan, Germany and Hong Kong) that runs on your own computer.
 
 ## Get it running
 

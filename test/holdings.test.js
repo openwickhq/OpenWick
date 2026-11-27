@@ -87,3 +87,11 @@ test('Console holdings as .xlsx are read (shared strings, numbers, a summary row
 test('a file without the needed columns says what it expects', () => {
   assert.throws(() => rowsToHoldings(parseCsv('date,amount\n2026-01-01,500\n')), /symbol and quantity/);
 });
+
+test('a plain CSV can hold any country: exchange prefixes and Yahoo suffixes become app symbols', () => {
+  const rows = parseCsv('Symbol,Quantity,Average price\nRELIANCE,10,2500\nNASDAQ:AAPL,5,$190.50\nSHEL.L,100,2650p\nTSE:7203,200,2800\nXETR:SAP,3,€180\nHKEX:700,100,HK$320');
+  const { holdings } = rowsToHoldings(rows);
+  assert.deepEqual(holdings.map((h) => [h.symbol, h.qty, h.avg]), [
+    ['RELIANCE', 10, 2500], ['US:AAPL', 5, 190.5], ['YAHOO:SHEL.L', 100, 2650], ['YAHOO:7203.T', 200, 2800], ['YAHOO:SAP.DE', 3, 180], ['YAHOO:0700.HK', 100, 320],
+  ]);
+});

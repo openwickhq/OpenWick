@@ -48,5 +48,6 @@ test('first check records the matches; later checks fire only for newcomers', as
 
 test('a screen needs a filter and a known market', () => {
   assert.throws(() => sa.add({ universe: 'nse', rules: [] }), /at least one filter/);
-  assert.throws(() => sa.add({ universe: 'us', rules: [{ key: 'pe', max: 10 }] }), /Pick a market/);
+  assert.throws(() => sa.add({ universe: 'mars', rules: [{ key: 'pe', max: 10 }] }), /Pick a market/);
+  assert.ok(sa.add({ universe: 'us', name: 'Cheap US', rules: [{ key: 'pe', max: 10 }] }).id);
 });

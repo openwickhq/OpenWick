@@ -18,7 +18,7 @@
     <main>
       <section class="hero">
         <h1>Your markets.<br /><span>On your machine.</span></h1>
-        <p>An open-source charting platform for Indian stocks, indices and crypto. Free to use, free to change, and it runs on your own computer.</p>
+        <p>An open-source charting platform for stocks, indices and crypto: India, the US, the UK, Japan, Germany and Hong Kong. Free to use, free to change, and it runs on your own computer.</p>
         <div class="h-search big" id="heroSearch">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
           <input id="heroQ" placeholder="Search a stock, index or coin: RELIANCE, BANKNIFTY, BTC…" autocomplete="off" />
@@ -39,15 +39,15 @@
       </section>
 
       <section class="block" id="breadthBlock">
-        <div class="block-head"><h2>Market breadth <small id="breadthWhen">NIFTY 500</small></h2><a href="/breadth">Every index ›</a></div>
+        <div class="block-head"><h2>Market breadth <small id="breadthWhen" data-list>NIFTY 500</small></h2><a href="/breadth">Every index ›</a></div>
         <div class="panel breadth" id="breadth"><div class="skeleton"></div></div>
       </section>
 
       <section class="block" id="india">
-        <div class="block-head"><h2>Indian stocks</h2><a href="/movers">All movers ›</a></div>
+        <div class="block-head"><h2 id="stocksHead">Indian stocks</h2><a href="/movers">All movers ›</a></div>
         <div class="cols three">
-          <div class="panel"><h3>Top gainers <small>NIFTY 500</small><a class="more" href="/movers?tab=gainers">See all ›</a></h3><div id="nseUp" class="list"></div></div>
-          <div class="panel"><h3>Top losers <small>NIFTY 500</small><a class="more" href="/movers?tab=losers">See all ›</a></h3><div id="nseDown" class="list"></div></div>
+          <div class="panel"><h3>Top gainers <small data-list>NIFTY 500</small><a class="more" href="/movers?tab=gainers">See all ›</a></h3><div id="nseUp" class="list"></div></div>
+          <div class="panel"><h3>Top losers <small data-list>NIFTY 500</small><a class="more" href="/movers?tab=losers">See all ›</a></h3><div id="nseDown" class="list"></div></div>
           <div class="panel"><h3>Sectors today<a class="more" href="/movers?tab=sectors">See all ›</a></h3><div id="sectors" class="bars"></div></div>
         </div>
       </section>
@@ -64,13 +64,13 @@
       <section class="block" id="newsBlock">
         <div class="block-head"><h2>News</h2><a href="/news">All headlines ›</a></div>
         <div class="cols two">
-          <div class="panel"><h3>Indian markets <small>Economic Times, Mint, Business Standard, Moneycontrol</small></h3><div id="newsIndia" class="news"></div></div>
+          <div class="panel"><h3><span id="newsHead">Indian markets</span> <small id="newsSources">Economic Times, Mint, Business Standard, Moneycontrol</small></h3><div id="newsIndia" class="news"></div></div>
           <div class="panel"><h3>Crypto <small>Cointelegraph, Decrypt</small></h3><div id="news" class="news"></div></div>
         </div>
       </section>
 
       <section class="block">
-        <div class="panel"><h3>India calendar <small>RBI, data and F&amp;O expiry</small></h3><div id="calendar" class="cal"></div></div>
+        <div class="panel"><h3><span id="calHead">India calendar</span> <small id="calNote">RBI, data and F&amp;O expiry</small></h3><div id="calendar" class="cal"></div></div>
       </section>
     </main>
 

@@ -3,17 +3,25 @@
 import { api, esc, fmtNum, ticker, logoUrl, logoImg } from "./api.js";
 import { FILTERS, POPULAR, categoryOf, recentSymbols, rememberSymbol, localSearch } from "./sym-search.js";
 import INDEX_NAMES from "./index-names.js";
+import SYMBOLS from "./symbol-index.js";
 import { askText, notice } from "./dialog.js";
 import "./selects.js";
+import { country, setCountry, PICKS } from "./country.js";
+import { EXCHANGES, sessionNow, shortName, bigMoney } from "../lib/markets.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
 export const chartUrl = (sym) => `/chart?symbol=${encodeURIComponent(sym)}`;
-// Indian stocks and indices have their own page (/symbol/RELIANCE, /symbol/%5ENSEI); the rest open the chart.
+// Stocks and indices on OpenWick's lists have their own page (/symbol/RELIANCE, /symbol/NIFTY-50,
+// /symbol/AAPL.US, /symbol/SHEL.L, /symbol/S-AND-P-500); the rest open the chart.
+let LISTED = null;
+const listed = (s) => (LISTED ||= new Set(SYMBOLS.filter((r) => r[2] === "stock").map((r) => r[0]))).has(s);
 export const pageUrl = (sym) => {
   const s = String(sym || "");
+  if (/^US:/.test(s)) return listed(s) ? `/symbol/${encodeURIComponent(s.slice(3))}.US` : chartUrl(s);
+  if (/^YAHOO:.+\.(L|T|DE|HK)$/.test(s) && !INDEX_NAMES[s.slice(6)]) return listed(s) ? `/symbol/${encodeURIComponent(s.slice(6))}` : chartUrl(s);
   if (!/^YAHOO:/.test(s) || /\.BO$/.test(s)) return chartUrl(s);
   const t = s.slice(6);
-  if (INDEX_NAMES[t]) return `/symbol/${INDEX_NAMES[t].toUpperCase().replace(/&/g, "AND").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+  if (INDEX_NAMES[t]) return `/symbol/${INDEX_NAMES[t].toUpperCase().replace(/&/g, " AND ").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
   return `/symbol/${encodeURIComponent(t.endsWith(".NS") ? t.slice(0, -3) : t)}`;
 };
 export const cls = (v) => (v == null ? "" : v >= 0 ? "up" : "down");
@@ -27,6 +35,7 @@ const LINKS = [
   ["portfolio", "/portfolio", "Portfolio"],
 ];
 const NOTES_ICON = '<svg viewBox="0 0 24 24"><path d="M14 4H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9zM14 4v5h5M8.5 13h7M8.5 16.5h4.5" /></svg>';
+const GLOBE_ICON = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.4 2.5 3.6 5.3 3.6 8.5s-1.2 6-3.6 8.5c-2.4-2.5-3.6-5.3-3.6-8.5s1.2-6 3.6-8.5z" /></svg>';
 const themeListeners = [];
 export const onThemeChange = (fn) => themeListeners.push(fn);
 
@@ -165,6 +174,44 @@ export async function openWatchMenu(sym, x, y) {
   }, { once: true }));
 }
 
+// The country picker's menu: each market with its exchange and whether it's open now.
+function openCountryMenu(btn) {
+  document.querySelector(".country-menu")?.remove();
+  const cur = country().code;
+  const m = document.createElement("div");
+  m.className = "dd-menu country-menu";
+  m.setAttribute("role", "menu");
+  m.innerHTML = `<div class="cm-title">Market</div>${PICKS.map((c) => {
+    const st = sessionNow(c.ex);
+    return `<button role="menuitemradio" aria-checked="${c.code === cur}" data-c="${c.code}" class="${c.code === cur ? "on" : ""}"><span class="cm-name">${esc(c.name)}</span><span class="cm-ex">${esc(EXCHANGES[c.ex].name)}</span><span class="cm-dot ${st.open ? "open" : ""}" title="${st.open ? "Open now" : "Closed now"}"></span></button>`;
+  }).join("")}<div class="cm-foot">Charts, watchlists and notes work for every market, whichever is picked. Crypto is on every page.</div>`;
+  document.body.append(m);
+  const r = btn.getBoundingClientRect();
+  m.style.top = `${r.bottom + 8}px`;
+  m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
+  m.onclick = (e) => {
+    const c = e.target.closest("[data-c]")?.dataset.c;
+    if (c && c !== cur) setCountry(c);
+    else if (c) m.remove();
+  };
+  m.querySelector("button.on")?.focus();
+  m.onkeydown = (e) => {
+    const items = [...m.querySelectorAll("button")];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+    } else if (e.key === "Escape") {
+      m.remove();
+      btn.focus();
+    }
+  };
+  setTimeout(() => document.addEventListener("click", function close(ev) {
+    if (m.contains(ev.target)) return document.addEventListener("click", close, { once: true });
+    m.remove();
+  }, { once: true }));
+}
+
 // Fills <header class="h-nav"> and applies the saved theme. `active` names the current page.
 export async function mountSite(active) {
   const header = $("header.h-nav");
@@ -172,10 +219,15 @@ export async function mountSite(active) {
     <div class="h-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg><input id="navQ" placeholder="Search (Ctrl+K)" autocomplete="off" /><div class="h-results" id="navResults"></div></div>
     <nav class="h-links">${LINKS.map(([k, href, label]) => `<a href="${href}" class="${k === active ? "active" : ""}">${label}</a>`).join("")}</nav>
     <span class="spacer"></span>
+    <button class="h-country" id="countryBtn" title="Pick the market the pages show" aria-haspopup="menu">${GLOBE_ICON}<span>${esc(shortName(country()))}</span><svg class="chev" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5" /></svg></button>
     <a class="h-icon ${active === "notes" ? "active" : ""}" href="/notes" title="Notes" aria-label="Notes">${NOTES_ICON}</a>
     <button class="h-icon" id="themeBtn" title="Light / dark"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" /></svg></button>
     <a class="h-btn" href="/chart">Charts</a>`;
   wireSearch($("#navQ"), $("#navResults"));
+  $("#countryBtn").onclick = (e) => {
+    e.stopPropagation();
+    openCountryMenu($("#countryBtn"));
+  };
   // Star buttons anywhere on the page (captured first, so a star inside a link or row only opens the menu).
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-watch]");
@@ -223,11 +275,11 @@ export function ago(t) {
 }
 
 // Market cap: Indian companies in crore (₹18.29 L Cr = 18.29 lakh crore), coins in dollars.
-export function fmtCap(v, inr) {
+// `cur`: true for rupees (crore), a currency code (USD, GBP, JPY…) for millions and billions, or
+// nothing for dollars.
+export function fmtCap(v, cur) {
   if (v == null || !Number.isFinite(v) || v <= 0) return "—";
-  if (!inr) return `$${fmtNum(v)}`;
-  if (v >= 1e12) return `₹${(v / 1e12).toFixed(2)} L Cr`;
-  return `₹${Math.round(v / 1e7).toLocaleString("en-IN")} Cr`;
+  return bigMoney(v, cur === true ? "INR" : cur || "USD");
 }
 
 const BADGE_COLORS = ["#6b6b6b", "#18a57b", "#e5803a", "#8a6d3b", "#d9468f", "#0f9488", "#a16207", "#525252"];

@@ -1,7 +1,8 @@
-// Indian company financials as bar charts plus a table, for the stock page and the chart's
+// Company financials as bar charts plus a table, for the stock page and the chart's
 // Financials tab. Data comes from /api/company (fin.ann and fin.qtr): yearly figures for the last
 // four or five years and quarterly revenue, operating and net income for the last few quarters.
 import { esc } from "./api.js";
+import { bigMoney, currencySign } from "../lib/markets.js";
 
 // ₹ in crore, with lakh crore for the biggest figures; negatives keep their sign.
 export function crore(v) {
@@ -13,12 +14,18 @@ export function crore(v) {
 }
 const pctTxt = (v) => (v == null || !Number.isFinite(v) ? "—" : `${v.toFixed(1)}%`);
 const rupee = (v) => (v == null || !Number.isFinite(v) ? "—" : `₹${v.toFixed(2)}`);
+// Other countries: millions and billions in the company's trading currency.
+let CUR = "INR";
+const money = (v) => (CUR === "INR" ? crore(v) : v == null || !Number.isFinite(v) ? "—" : bigMoney(v, CUR).replace(/^-/, "−"));
+const perShare = (v) => (CUR === "INR" ? rupee(v) : v == null || !Number.isFinite(v) ? "—" : `${currencySign(CUR)}${v.toFixed(2)}`);
 
 // "2026-03" → "FY26" (Indian years end in March); quarters → "Sep '25".
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function periodLabel(d, quarterly) {
   const [y, m] = d.split("-").map(Number);
   if (quarterly) return `${MONTHS[m - 1]} '${String(y).slice(2)}`;
+  // Other countries' years end in different months: the year it ends, with the month unless December.
+  if (CUR !== "INR") return m === 12 ? String(y) : `${MONTHS[m - 1]} ${y}`;
   const fy = m <= 3 ? y : y + 1;
   return `FY${String(fy).slice(2)}`;
 }
@@ -80,8 +87,13 @@ const VIEWS = [
 // el: container. info: /api/company result (fin, shares, name). opts: { view, quarterly }.
 export function renderFinancials(el, info, opts = {}) {
   const fin = info?.fin;
+  CUR = info?.currency || "INR";
   if (!fin?.ann?.dates?.length) {
-    el.innerHTML = `<p class="hint-text">No financial statements for ${esc(info?.name || "this company")} in the saved data. Run <code>node scripts/update-lists.js --fundamentals</code> to refresh them.</p>`;
+    el.innerHTML = info?.finPending
+      ? `<p class="hint-text">${esc(info.name)}'s figures are downloading: this is the first time this country was opened. They appear here in a minute or two.</p>`
+      : info?.country
+        ? `<p class="hint-text">Yahoo has no financial statements for ${esc(info.name)} yet.</p>`
+        : `<p class="hint-text">No financial statements for ${esc(info?.name || "this company")} in the saved data. Run <code>node scripts/update-lists.js --fundamentals</code> to refresh them.</p>`;
     return;
   }
   const view = opts.view || "income";
@@ -99,16 +111,16 @@ export function renderFinancials(el, info, opts = {}) {
       { name: "Revenue", values: rev, color: COLORS.a },
       { name: "Operating income", values: op, color: COLORS.d },
       { name: "Net income", values: ni, color: COLORS.b },
-    ], crore, w);
+    ], money, w);
     rows = [
-      { name: "Revenue", values: rev, fmt: crore },
+      { name: "Revenue", values: rev, fmt: money },
       { name: quarterly ? "Revenue growth (vs previous quarter)" : "Revenue growth", values: growth(rev, d.dates, quarterly ? 3 : 12), fmt: pctTxt, signed: true },
-      { name: "Gross profit", values: col("gp"), fmt: crore },
-      { name: "Operating income", values: op, fmt: crore },
-      { name: "EBITDA", values: col("ebitda"), fmt: crore },
-      { name: "Net income", values: ni, fmt: crore },
+      { name: "Gross profit", values: col("gp"), fmt: money },
+      { name: "Operating income", values: op, fmt: money },
+      { name: "EBITDA", values: col("ebitda"), fmt: money },
+      { name: "Net income", values: ni, fmt: money },
       { name: quarterly ? "Net income growth (vs previous quarter)" : "Net income growth", values: growth(ni, d.dates, quarterly ? 3 : 12), fmt: pctTxt, signed: true },
-      { name: "Earnings per share", values: ni.map((v) => div(v, sh)), fmt: rupee },
+      { name: "Earnings per share", values: ni.map((v) => div(v, sh)), fmt: perShare },
     ];
   } else if (view === "margins") {
     const gm = col("gp").map((v, i) => (v == null ? null : div(v, rev[i]) * 100));
@@ -131,28 +143,28 @@ export function renderFinancials(el, info, opts = {}) {
       { name: "Equity", values: eq, color: COLORS.a },
       { name: "Total debt", values: debt, color: COLORS.c },
       { name: "Cash", values: cash, color: COLORS.b },
-    ], crore, w);
+    ], money, w);
     rows = [
-      { name: "Total assets", values: col("assets"), fmt: crore },
-      { name: "Shareholders' equity", values: eq, fmt: crore },
-      { name: "Total debt", values: debt, fmt: crore },
-      { name: "Cash and equivalents", values: cash, fmt: crore },
-      { name: "Net debt", values: debt.map((v, i) => (v == null ? null : v - (cash[i] || 0))), fmt: crore },
+      { name: "Total assets", values: col("assets"), fmt: money },
+      { name: "Shareholders' equity", values: eq, fmt: money },
+      { name: "Total debt", values: debt, fmt: money },
+      { name: "Cash and equivalents", values: cash, fmt: money },
+      { name: "Net debt", values: debt.map((v, i) => (v == null ? null : v - (cash[i] || 0))), fmt: money },
       { name: "Debt / equity", values: debt.map((v, i) => div(v, eq[i])), fmt: (v) => (v == null ? "—" : v.toFixed(2)) },
-      { name: "Book value per share", values: eq.map((v) => div(v, sh)), fmt: rupee },
+      { name: "Book value per share", values: eq.map((v) => div(v, sh)), fmt: perShare },
     ];
   } else {
     const fcf = col("fcf"), dv = col("div");
     chart = bars(labels, [
       { name: "Free cash flow", values: fcf, color: COLORS.a },
       { name: "Dividends paid", values: dv, color: COLORS.b },
-    ], crore, w);
+    ], money, w);
     rows = [
-      { name: "Free cash flow", values: fcf, fmt: crore },
-      { name: "Dividends paid", values: dv, fmt: crore },
-      { name: "Dividend per share", values: dv.map((v) => div(v, sh)), fmt: rupee },
+      { name: "Free cash flow", values: fcf, fmt: money },
+      { name: "Dividends paid", values: dv, fmt: money },
+      { name: "Dividend per share", values: dv.map((v) => div(v, sh)), fmt: perShare },
       { name: "Payout ratio", values: dv.map((v, i) => (v == null || !(ni[i] > 0) ? null : div(v, ni[i]) * 100)), fmt: pctTxt },
-      { name: "Free cash flow per share", values: fcf.map((v) => div(v, sh)), fmt: rupee },
+      { name: "Free cash flow per share", values: fcf.map((v) => div(v, sh)), fmt: perShare },
     ];
   }
   const qtrOk = !yearlyOnly && fin.qtr?.dates?.length > 1;
@@ -167,7 +179,7 @@ export function renderFinancials(el, info, opts = {}) {
     </div>
     ${chart}
     ${table(labels, rows)}
-    <p class="hint-text">${quarterly ? "Quarters as reported; Yahoo leaves some quarters out." : "Indian financial years end in March (FY26 = April 2025 to March 2026)."} Per-share figures use today's share count${fin.fy ? "" : ""}. Source: Yahoo Finance, saved by <code>update-lists.js --fundamentals</code>.</p>
+    <p class="hint-text">${quarterly ? "Quarters as reported; Yahoo leaves some quarters out." : CUR === "INR" ? "Indian financial years end in March (FY26 = April 2025 to March 2026)." : "Each column is a financial year, named by the month it ends."} Per-share figures use today's share count.${fin.reported && fin.reported !== CUR ? ` ${esc(info.name)} reports in ${esc(fin.reported)}; converted to ${esc(CUR)} at today's rate.` : ""} Source: Yahoo Finance${CUR === "INR" ? ", saved by <code>update-lists.js --fundamentals</code>" : ""}.</p>
   </div>`;
   el.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => renderFinancials(el, info, { ...opts, view: b.dataset.view })));
   el.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => renderFinancials(el, info, { ...opts, quarterly: b.dataset.q === "1" })));

@@ -19,6 +19,7 @@ import { VolumeProfile, SessionVolumeProfile } from "./volume-profile.js";
 import { SessionLayer } from "./sessions.js";
 import { StdDevChannel } from "./std-channel.js";
 import { askText } from "./dialog.js";
+import { exchangeOf, sessionNow, barCloseIn as sessionBarCloseIn } from "../lib/markets.js";
 
 const LW = window.LightweightCharts;
 
@@ -41,12 +42,12 @@ export const CHART_TYPES = [
 ];
 // Chart types built from price alone, with no meaningful volume per bar.
 const PRICE_ONLY = ["renko", "linebreak", "kagi", "pnf"];
-// NSE's regular session: 09:15 to 15:30 IST, Monday to Friday.
-function nseOpen(now = Date.now()) {
-  const ist = new Date(now + 5.5 * 3600e3);
-  const day = ist.getUTCDay(), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-  return day >= 1 && day <= 5 && mins >= 9 * 60 + 15 && mins < 15 * 60 + 30;
-}
+// Whether the exchange a symbol trades on is open now (NSE 09:15-15:30 IST, New York 09:30-16:00…;
+// public/lib/markets.js has them all). False for 24-hour markets, which poll on their own pace.
+const exchangeOpen = (symbol) => {
+  const ex = exchangeOf(symbol);
+  return !!ex && sessionNow(ex).open;
+};
 
 // Charts refreshing by polling; when the window comes back into view they refresh at once.
 const POLLING = new Set();
@@ -1434,18 +1435,18 @@ export class ChartPane {
     };
   }
 
-  // How long to wait before the next refresh. Indian stocks and indices refresh every 2.5 s while
-  // NSE is open (5 s for the charts you aren't working on when there are more than two), and
+  // How long to wait before the next refresh. Stocks and indices refresh every 2.5 s while their
+  // exchange is open (5 s for the charts you aren't working on when there are more than two), and
   // every 10 s otherwise. A hidden window refreshes every 30 s. When refreshes fail (Yahoo
   // limits how often it answers), the wait doubles each time, up to 30 s, until one works again.
   pollDelay() {
     if (document.hidden) return 30000;
     const crypto = ["BINANCE", "COINBASE", "KRAKEN", "BYBIT", "BLOFIN"].includes(exchange(this.cfg.symbol));
     let ms = crypto ? 3000 : 10000;
-    // A chart with no new candle for 30 minutes isn't trading (an NSE holiday): no need to hurry.
+    // A chart with no new candle for 30 minutes isn't trading (a holiday): no need to hurry.
     const last = this.bars.at(-1);
     const moving = last && Date.now() / 1000 - (last.time + parseTf(this.cfg.tf).seconds) < 1800;
-    if (!crypto && moving && exchange(this.cfg.symbol) === "YAHOO" && /^Yahoo/.test(this.provider || "") && nseOpen()) {
+    if (!crypto && moving && ["YAHOO", "US"].includes(exchange(this.cfg.symbol)) && exchangeOpen(this.cfg.symbol)) {
       const panes = this.app.panes?.length || 1;
       ms = panes <= 2 || this.app.active === this ? 2500 : 5000;
     }
@@ -1643,24 +1644,15 @@ export class ChartPane {
   }
 
   // ---------- countdown to bar close (next to the last price on the price scale) ----------
-  // Indian stocks and indices count down within NSE hours (09:15–15:30 IST, Mon–Fri) and show
-  // nothing while the market is closed; crypto and forex count down around the clock.
+  // Stocks and indices count down within their exchange's hours (NSE 09:15–15:30 IST, Tokyo with
+  // its lunch break…) and show nothing while it's closed; crypto and forex count down around the clock.
   barCloseIn(nowSec = Date.now() / 1000) {
     const tf = parseTf(this.cfg.tf).seconds;
     if (!tf || this.replay || !this.shown.length) return null;
     const ex = exchange(this.cfg.symbol);
-    if (ex === "YAHOO") {
-      if (tf > 86400) return null;
-      const ist = nowSec + 19800;
-      const day = new Date(ist * 1000).getUTCDay();
-      const mins = Math.floor((ist % 86400) / 60);
-      if (day < 1 || day > 5 || mins < 555 || mins >= 930) return null;
-      const sessEnd = Math.floor(ist / 86400) * 86400 + 930 * 60 - 19800;
-      if (tf >= 86400) return sessEnd - nowSec;
-      const sessStart = sessEnd - 375 * 60;
-      return Math.min(sessEnd, sessStart + (Math.floor((nowSec - sessStart) / tf) + 1) * tf) - nowSec;
-    }
-    if (ex === "CSV") return null;
+    const market = exchangeOf(this.cfg.symbol);
+    if (market) return sessionBarCloseIn(market, tf, nowSec);
+    if (ex === "CSV" || ex === "SPREAD") return null;
     if (tf === 604800) return Math.floor((nowSec - 345600) / 604800) * 604800 + 345600 + 604800 - nowSec; // weeks start Monday 00:00 UTC
     if (tf > 604800) {
       const d = new Date(nowSec * 1000);

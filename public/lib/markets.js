@@ -32,7 +32,7 @@ const SUFFIX_EXCHANGE = { NS: "NSE", BO: "NSE", L: "LSE", IL: "LSE", T: "TSE", D
 // Heatmap; `id(s)` turns a list symbol into the app's symbol id.
 export const COUNTRIES = [
   { code: "IN", name: "India", flag: "🇮🇳", ex: "NSE", cur: "INR", list: "NIFTY 500", gl: "IN", hl: "en-IN" },
-  { code: "US", name: "United States", short: "USA", flag: "🇺🇸", ex: "US", cur: "USD", list: "S&P 500", gl: "US", hl: "en-US" },
+  { code: "US", name: "United States", short: "USA", flag: "🇺🇸", ex: "US", cur: "USD", list: "S&P 500 + Nasdaq-100", gl: "US", hl: "en-US" },
   { code: "GB", name: "United Kingdom", short: "UK", flag: "🇬🇧", ex: "LSE", cur: "GBP", list: "FTSE 350", gl: "GB", hl: "en-GB" },
   { code: "JP", name: "Japan", flag: "🇯🇵", ex: "TSE", cur: "JPY", list: "Nikkei 225", gl: "US", hl: "en-US" },
   { code: "DE", name: "Germany", flag: "🇩🇪", ex: "XETRA", cur: "EUR", list: "DAX and MDAX", gl: "US", hl: "en-US" },

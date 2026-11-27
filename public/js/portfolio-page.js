@@ -1,8 +1,14 @@
-// Portfolio page: your holdings from a Zerodha file (or typed in), valued at today's prices, with
-// P&L, sector allocation against NIFTY 50, news on the stocks you own, and quick alerts.
+// Portfolio page: your holdings from a Zerodha file, a simple CSV (Symbol, Quantity, Average price)
+// or typed in, valued at today's prices, with P&L, sector allocation against the picked country's
+// main index, news on the stocks you own, and quick alerts. Shares from any country can be mixed:
+// each row is in its own currency, and the totals are converted into the picked country's.
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
-import { $, cls, mountSite, badge, starButton, ago } from "./site.js";
-import { readHoldingsFile } from "./holdings-import.js";
+import { $, cls, mountSite, badge, starButton, ago, pageUrl } from "./site.js";
+import { readHoldingsFile, cleanSym } from "./holdings-import.js";
+import { country } from "./country.js";
+import { currencyOf } from "./currency.js";
+import { currencySign } from "../lib/markets.js";
+import SYMBOLS from "./symbol-index.js";
 import { ask, notice } from "./dialog.js";
 
 await mountSite("portfolio");
@@ -12,10 +18,35 @@ let quotes = {}; // symbol -> { price, changePct }
 let sort = { k: "value", dir: -1 };
 let nifty = null; // sector -> weight %
 
-const rupees = (v, d = 0) => (v == null || !Number.isFinite(v) ? "—" : `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d })}`);
+// Totals in the picked country's currency; Indian holdings saved as plain NSE symbols (RELIANCE),
+// other countries' as the app's own symbol (US:AAPL, YAHOO:SHEL.L).
+const C = country(), BASE = C.cur;
+const money = (v, cur = BASE, d = 0) => (v == null || !Number.isFinite(v) ? "—" : `${currencySign(cur)}${Number(v).toLocaleString(cur === "INR" ? "en-IN" : "en-US", { minimumFractionDigits: d, maximumFractionDigits: d })}`);
+const rupees = (v, d = 0) => money(v, BASE, d);
 const signed = (v, d = 0) => (v == null || !Number.isFinite(v) ? "—" : `${v >= 0 ? "+" : "−"}${rupees(Math.abs(v), d)}`);
 const msg = (html, kind = "info") => ($("#msg").innerHTML = html ? `<div class="pf-msg ${kind}">${html}</div>` : "");
-const yahoo = (s) => `YAHOO:${s}.NS`;
+const yahoo = (s) => (s.includes(":") ? s : `YAHOO:${s}.NS`);
+// A holding's trading currency, and what one unit of its price is worth in that currency (London: pence).
+const curOf = (s) => { const c = currencyOf(yahoo(s)); return c === "GBX" ? "GBP" : c || "INR"; };
+const unitOf = (s) => (currencyOf(yahoo(s)) === "GBX" ? 0.01 : 1);
+let fx = { [BASE]: 1 }; // currency -> its value in BASE
+async function loadFx() {
+  const need = [...new Set(pf.holdings.map((h) => curOf(h.symbol)))].filter((c) => !(c in fx));
+  if (!need.length) return;
+  try {
+    const q = await api.quotes(need.map((c) => `YAHOO:${c}${BASE}=X`));
+    for (const c of need) if (q[`YAHOO:${c}${BASE}=X`]?.price) fx[c] = q[`YAHOO:${c}${BASE}=X`].price;
+  } catch { /* converted once the rate loads */ }
+}
+const label = (s) => (s.includes(":") ? s.split(":")[1].replace(/\.(L|T|DE|HK)$/, "") : s);
+// What was typed in the Add box: RELIANCE (NSE), AAPL (a US list stock), SHEL.L, NASDAQ:AAPL, LSE:SHEL…
+const LISTED = new Set(SYMBOLS.filter((r) => r[2] === "stock").map((r) => r[0]));
+function holdingSymbol(typed) {
+  const t = cleanSym(typed).replace(/\.NS$/, "");
+  if (t.includes(":")) return t;
+  if (!LISTED.has(`YAHOO:${t}.NS`) && LISTED.has(`US:${t}`)) return `US:${t}`;
+  return t;
+}
 
 // ---------- load and save ----------
 async function save(next) {
@@ -25,6 +56,7 @@ async function save(next) {
 async function enrich() {
   const syms = pf.holdings.map((h) => h.symbol);
   if (!syms.length) return draw();
+  await loadFx();
   info = await api.get(`/api/portfolio/info?symbols=${encodeURIComponent(syms.join(","))}`).catch(() => ({}));
   draw();
   try {
@@ -62,9 +94,9 @@ for (const el of [document.body]) {
 function editDialog(h = null) {
   $("#dialog").innerHTML = `<h3>${h ? `Edit ${esc(h.symbol)}` : "Add a holding"}</h3>
     <form id="hf" class="pf-form">
-      <label>NSE symbol<input id="hSym" value="${esc(h?.symbol || "")}" ${h ? "readonly" : ""} placeholder="RELIANCE" autocomplete="off" /></label>
+      <label>Symbol<input id="hSym" value="${esc(h?.symbol || "")}" ${h ? "readonly" : ""} placeholder="RELIANCE, AAPL, SHEL.L, 7203.T, SAP.DE, 0700.HK" autocomplete="off" /></label>
       <label>Quantity<input id="hQty" type="number" step="any" min="0" value="${h?.qty ?? ""}" /></label>
-      <label>Average price (₹)<input id="hAvg" type="number" step="any" min="0" value="${h?.avg ?? ""}" /></label>
+      <label>Average price <small class="muted">in the share's own currency (pence for London)</small><input id="hAvg" type="number" step="any" min="0" value="${h?.avg ?? ""}" /></label>
       <div class="pf-dlg-btns">${h ? '<button type="button" class="pill btnlike danger" id="hDel">Remove</button><span class="spacer"></span>' : ""}<button type="button" class="pill btnlike" id="hNo">Cancel</button><button class="h-btn" type="submit">Save</button></div>
     </form>`;
   $("#modal").classList.remove("hidden");
@@ -74,9 +106,9 @@ function editDialog(h = null) {
   $("#hDel") && ($("#hDel").onclick = async () => { close(); await save({ ...pf, holdings: pf.holdings.filter((x) => x.symbol !== h.symbol) }); });
   $("#hf").onsubmit = async (e) => {
     e.preventDefault();
-    const symbol = $("#hSym").value.trim().toUpperCase().replace(/\.NS$/, "");
+    const symbol = h ? h.symbol : holdingSymbol($("#hSym").value);
     const qty = Number($("#hQty").value), avg = Number($("#hAvg").value);
-    if (!/^[A-Z0-9&\-_.]+$/.test(symbol) || !(qty > 0)) return notice("Enter an NSE symbol and a quantity above zero.");
+    if (!/^[A-Z0-9&\-_.:^]+$/.test(symbol) || !(qty > 0)) return notice("Enter a symbol (RELIANCE, AAPL, SHEL.L…) and a quantity above zero.");
     const rest = pf.holdings.filter((x) => x.symbol !== symbol);
     close();
     await save({ ...pf, holdings: [...rest, { ...(h || {}), symbol, qty, avg: avg || 0 }], source: pf.source || "typed in" });
@@ -89,14 +121,16 @@ function rows() {
   return pf.holdings.map((h) => {
     const q = quotes[h.symbol] || {};
     const ltp = q.price ?? null;
-    const value = ltp != null ? ltp * h.qty : null;
-    const cost = h.avg * h.qty;
+    // Money columns in BASE: price × quantity × (pence → pounds) × exchange rate.
+    const cur = curOf(h.symbol), k = unitOf(h.symbol) * (fx[cur] ?? NaN);
+    const value = ltp != null && Number.isFinite(k) ? ltp * h.qty * k : null;
+    const cost = Number.isFinite(k) ? h.avg * h.qty * k : 0;
     const prev = ltp != null && q.changePct != null ? ltp / (1 + q.changePct / 100) : null;
     return {
-      ...h, ltp, value, cost,
+      ...h, ltp, value, cost, cur, label: label(h.symbol),
       pnl: value != null && h.avg ? value - cost : null,
       pnlPct: value != null && h.avg ? ((ltp - h.avg) / h.avg) * 100 : null,
-      day: prev != null ? (ltp - prev) * h.qty : null,
+      day: prev != null && Number.isFinite(k) ? (ltp - prev) * h.qty * k : null,
       dayPct: q.changePct ?? null,
       name: info[h.symbol]?.name || h.symbol,
       sector: info[h.symbol]?.sector || h.sector || "Other",
@@ -146,7 +180,7 @@ function draw() {
 
   for (const r of R) r.weight = total ? ((r.value ?? r.cost) / total) * 100 : null;
   const cols = [
-    { k: "symbol", h: "Stock", l: 1, cell: (r) => `<td class="l"><div class="sym-cell">${starButton(yahoo(r.symbol))}<a class="sym" href="/symbol/${encodeURIComponent(r.symbol)}">${badge(yahoo(r.symbol), r.symbol)}<span><b>${esc(r.symbol)}</b><small>${esc(r.name)}</small></span></a></div></td>` },
+    { k: "symbol", h: "Stock", l: 1, cell: (r) => `<td class="l"><div class="sym-cell">${starButton(yahoo(r.symbol))}<a class="sym" href="${esc(pageUrl(yahoo(r.symbol)))}">${badge(yahoo(r.symbol), r.label)}<span><b>${esc(r.label)}</b><small>${esc(r.name)}${r.cur !== BASE ? ` · ${esc(r.cur)}` : ""}</small></span></a></div></td>` },
     { k: "qty", h: "Qty", cell: (r) => `<td>${r.qty.toLocaleString("en-IN")}</td>` },
     { k: "avg", h: "Avg cost", cell: (r) => `<td>${r.avg ? fmtPrice(r.avg) : "—"}</td>` },
     { k: "ltp", h: "LTP", cell: (r) => `<td>${r.ltp != null ? fmtPrice(r.ltp) : "…"}</td>` },
@@ -174,14 +208,17 @@ function draw() {
   drawSectors(R, total);
 }
 
-// Your sector weights next to NIFTY 50's (by its members' market cap).
+// The benchmark the sector weights are compared with: the picked country's main index.
+const BENCH = { IN: ["NIFTY-50", "NIFTY 50"], US: ["S-AND-P-500", "S&P 500"], GB: ["FTSE-100", "FTSE 100"], JP: ["NIKKEI-225", "Nikkei 225"], DE: ["DAX", "DAX"], HK: ["HANG-SENG-INDEX", "Hang Seng"] }[C.code];
+$("#benchNote") && ($("#benchNote").textContent = `you vs ${BENCH[1]}`);
+// Your sector weights next to the benchmark's (by its members' market cap).
 async function drawSectors(R, total) {
   const mine = {};
   for (const r of R) mine[r.sector] = (mine[r.sector] || 0) + ((r.value ?? r.cost) / total) * 100;
   // Your side first; NIFTY 50's weights fill in once its members' prices have loaded.
   if (nifty === null) {
     nifty = undefined;
-    api.get("/api/company/live?id=NIFTY-50").then((d) => {
+    api.get(`/api/company/live?id=${BENCH[0]}`).then((d) => {
       nifty = {};
       for (const m of d.members || []) if (m.weight) nifty[m.sector || "Other"] = (nifty[m.sector || "Other"] || 0) + m.weight;
     }).catch(() => (nifty = {})).finally(() => drawSectors(R, total));
@@ -189,10 +226,10 @@ async function drawSectors(R, total) {
   const nf = nifty || {};
   const names = [...new Set([...Object.keys(mine), ...Object.keys(nf)])].sort((a, b) => (mine[b] || 0) - (mine[a] || 0) || (nf[b] || 0) - (nf[a] || 0));
   const max = Math.max(1, ...names.map((n) => Math.max(mine[n] || 0, nf[n] || 0)));
-  $("#sectors").innerHTML = `<div class="pf-legend"><span><i class="me"></i>You</span><span><i class="nf"></i>NIFTY 50${nifty ? "" : " (loading…)"}</span></div>` + names.map((n) => {
+  $("#sectors").innerHTML = `<div class="pf-legend"><span><i class="me"></i>You</span><span><i class="nf"></i>${esc(BENCH[1])}${nifty ? "" : " (loading…)"}</span></div>` + names.map((n) => {
     const a = mine[n] || 0, b = nf[n] || 0;
     const diff = a - b;
-    return `<div class="pf-sec" title="${esc(n)}: you ${a.toFixed(1)}%, NIFTY 50 ${b.toFixed(1)}%"><div class="nm"><span>${esc(n)}</span><span class="${Math.abs(diff) < 2 ? "muted" : diff > 0 ? "over" : "under"}">${a.toFixed(1)}% <small>vs ${b.toFixed(1)}%</small></span></div><div class="bar me" style="width:${(a / max) * 100}%"></div><div class="bar nf" style="width:${(b / max) * 100}%"></div></div>`;
+    return `<div class="pf-sec" title="${esc(n)}: you ${a.toFixed(1)}%, ${esc(BENCH[1])} ${b.toFixed(1)}%"><div class="nm"><span>${esc(n)}</span><span class="${Math.abs(diff) < 2 ? "muted" : diff > 0 ? "over" : "under"}">${a.toFixed(1)}% <small>vs ${b.toFixed(1)}%</small></span></div><div class="bar me" style="width:${(a / max) * 100}%"></div><div class="bar nf" style="width:${(b / max) * 100}%"></div></div>`;
   }).join("");
 }
 

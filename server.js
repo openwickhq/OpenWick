@@ -306,7 +306,11 @@ async function handle(req, res) {
       const c = String(q.country || "IN").toUpperCase();
       if (markets.isCountry(c)) {
         markets.touch(c);
-        return send(res, 200, markets.list(c).indices.filter((x) => x.mem?.length).map((x) => ({ symbol: markets.indexId(x), name: x.n, members: x.mem.map((s) => stockId(c, s)) })));
+        const l = markets.list(c);
+        const out = l.indices.filter((x) => x.mem?.length).map((x) => ({ symbol: markets.indexId(x), name: x.n, members: x.mem.map((s) => stockId(c, s)) }));
+        // The whole main list first when it's more than one index (S&P 500 + Nasdaq-100, FTSE 350, DAX + MDAX).
+        if (!out.some((x) => x.members.length >= l.items.length)) out.unshift({ symbol: "", name: l.list, members: l.items.map((x) => stockId(c, x.s)), all: true });
+        return send(res, 200, out);
       }
       return send(res, 200, INDICES.items.filter((x) => x.mem?.length).map((x) => ({ symbol: `YAHOO:${x.y}`, name: x.n, members: x.mem })));
     }
@@ -321,8 +325,13 @@ async function handle(req, res) {
         ),
       );
     // India events are worked out locally; ?region=world is the outside-the-US feed.
-    if (p === "/api/calendar")
+    // ?country=US (GB, JP, DE, HK): that country's economic events from the world feed.
+    const CAL_CUR = { US: ["USD"], GB: ["GBP"], JP: ["JPY"], DE: ["EUR"], HK: ["CNY", "HKD"] };
+    if (p === "/api/calendar") {
+      const c = String(q.country || "").toUpperCase();
+      if (CAL_CUR[c]) return send(res, 200, await data.economicCalendar(CAL_CUR[c]));
       return send(res, 200, q.region === "world" ? await data.economicCalendar() : indiaEvents());
+    }
     if (p === "/api/news") return send(res, 200, await info.news(q.symbol));
     if (p === "/api/financials") return send(res, 200, await info.financials(q.symbol, q.frequency));
     // Portfolio page: your holdings (imported from a Zerodha CSV/XLSX in the browser) stay in data/portfolio.json.

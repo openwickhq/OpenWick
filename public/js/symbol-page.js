@@ -5,6 +5,7 @@ import { $, chartUrl, cls, mountSite, onThemeChange, badge, fmtCap, ago, starBut
 import { renderFinancials } from "./financials-view.js";
 import { drawTechnicals } from "./technicals-view.js";
 import { renderSeasonals } from "./research.js";
+import { currencySign, countryByCode } from "../lib/markets.js";
 
 await mountSite("");
 const id = decodeURIComponent(location.pathname.replace(/^\/symbol\/?/, "")) || new URLSearchParams(location.search).get("id") || "";
@@ -23,15 +24,20 @@ try {
 if (info.slug && decodeURIComponent(location.pathname) !== `/symbol/${info.slug}`) history.replaceState(null, "", `/symbol/${encodeURIComponent(info.slug)}`);
 document.title = `${info.kind === "stock" ? `${info.ticker} · ${info.name}` : info.name} · OpenWick`;
 const isStock = info.kind === "stock";
+// India: rupees in crore. Other countries: their currency (London prices in pence).
+const CUR = info.currency || "INR";
+const pxSign = isStock ? (info.pence ? "" : currencySign(CUR)) : "";
+const pxUnit = isStock && info.pence ? "p" : "";
+const listName = countryByCode[info.country || "IN"].list;
 $("#openChart").href = chartUrl(info.symbol);
 
 // ---------- header ----------
 function drawHead(s = {}) {
-  const sub = isStock ? [info.ticker, "NSE", info.sector, s.capClass ? `${s.capClass}${s.capRank ? ` #${s.capRank}` : ""}` : ""] : [info.exchange, "Index", info.members ? `${info.members} companies` : ""];
+  const sub = isStock ? [info.ticker, info.exchange || "NSE", info.sector, s.capClass ? `${s.capClass}${s.capRank ? ` #${s.capRank}` : ""}` : ""] : [info.exchange, "Index", info.members ? `${info.members} companies` : ""];
   $("#head").innerHTML = `
     <div class="sp-id">${badge(info.symbol, (isStock ? info.ticker : info.name.replace(/^(NIFTY|BSE) /, "")).slice(0, 2))}
       <div><h1>${esc(info.name)}</h1><div class="muted">${sub.filter(Boolean).map(esc).join(" · ")}</div></div></div>
-    <div class="sp-px"><span class="px">${s.price != null ? `${isStock ? "₹" : ""}${fmtPrice(s.price)}` : "—"}</span>
+    <div class="sp-px"><span class="px">${s.price != null ? `${pxSign}${fmtPrice(s.price)}${pxUnit}` : "—"}</span>
       <span class="ch ${cls(s.changePct)}">${s.changePct != null ? fmtPct(s.changePct) : ""}</span><span class="muted">today</span></div>
     ${starButton(info.symbol, "Watchlist")}<a class="h-btn" href="${chartUrl(info.symbol)}">Open chart</a>`;
 }
@@ -117,14 +123,14 @@ function rangeBar(lo, hi, px) {
 function drawStats(s) {
   const rows = isStock
     ? [
-        kv("Market cap", fmtCap(s.marketCap, true)),
+        kv("Market cap", fmtCap(s.marketCap, CUR)),
         kv("P/E", num(s.pe, 1), "Price ÷ earnings per share, last 12 months"),
         kv("P/B", num(s.pb, 2), "Price ÷ book value per share"),
-        kv("EPS (12 m)", s.eps != null ? `₹${num(s.eps)}` : "—"),
+        kv("EPS (12 m)", s.eps != null ? `${pxSign}${num(s.eps)}${pxUnit}` : "—"),
         kv("ROE", pctOr(s.roe), "Net income ÷ shareholders' equity"),
         kv("Net margin", pctOr(s.netMargin)),
-        kv("Revenue (12 m)", fmtCap(s.revenue, true)),
-        kv("Net income (12 m)", fmtCap(s.netIncome, true)),
+        kv("Revenue (12 m)", fmtCap(s.revenue, CUR)),
+        kv("Net income (12 m)", fmtCap(s.netIncome, CUR)),
         kv("Revenue growth", pctOr(s.revGrowth), "Latest year vs the year before"),
         kv("Dividend yield", pctOr(s.divYield)),
         kv("Debt / equity", num(s.de, 2)),
@@ -133,7 +139,7 @@ function drawStats(s) {
       ]
     : [
         kv("Level", fmtPrice(s.price)),
-        kv("Members' market cap", fmtCap(s.marketCap, true)),
+        kv("Members' market cap", fmtCap(s.marketCap, CUR)),
         kv("Companies", info.members || "—"),
         kv("RSI (14)", num(s.rsi, 0)),
         kv("vs 50-day avg", pctOr(s.vsSma50)),
@@ -180,7 +186,7 @@ const COMMON = [
   { k: "ticker", h: "Company", l: true, cell: symCell },
   { k: "price", h: "Price", cell: (r) => td(r.price != null ? fmtPrice(r.price) : "—") },
   { k: "changePct", h: "Change", cell: (r) => td(pctOr(r.changePct), cls(r.changePct)) },
-  { k: "marketCap", h: "Market cap", cell: (r) => td(fmtCap(r.marketCap, true)) },
+  { k: "marketCap", h: "Market cap", cell: (r) => td(fmtCap(r.marketCap, CUR)) },
   { k: "pe", h: "P/E", cell: (r) => td(num(r.pe, 1)) },
   { k: "roe", h: "ROE", cell: (r) => td(pctOr(r.roe)) },
   { k: "perfY", h: "1 year", cell: (r) => td(pctOr(r.perfY), cls(r.perfY)) },
@@ -204,8 +210,8 @@ function drawMembers(d) {
 function drawPeers(d) {
   if (!d.peers?.length) return;
   $("#peersSec").hidden = false;
-  $("#peersNote").textContent = `${info.sector} · biggest ${d.peers.length} of ${d.sectorCount} in the NIFTY 500`;
-  $("#peersLink").href = `/screener?sector=${encodeURIComponent(info.sector)}`;
+  $("#peersNote").textContent = `${info.sector} · biggest ${d.peers.length} of ${d.sectorCount} in the ${listName}`;
+  $("#peersLink").href = `/screener?sector=${encodeURIComponent(info.sector)}&country=${info.country || "IN"}`;
   sortable($("#peers"), [{ ...d.stats, ticker: info.ticker, name: `${info.name} (this company)`, symbol: info.symbol, slug: info.slug, me: true }, ...d.peers], COMMON, { k: "marketCap", dir: -1 });
 }
 

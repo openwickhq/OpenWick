@@ -1,5 +1,8 @@
 // Side panel (watchlist, alerts, calendar, news) and bottom panel (tester, paper, editor, seasonals, financials).
 // The screener and heatmap have their own pages (public/screener.html, public/heatmap.html).
+import { countryCode } from "./country.js";
+import { currencyOf } from "./currency.js";
+import { exchangeOf, sessionNow } from "../lib/markets.js";
 import {
   api,
   download,
@@ -134,12 +137,13 @@ export function initPanels(app) {
     if (quotes[s]?.kind) return quotes[s].kind;
     if (CRYPTO_EX.includes(exchange(s))) return "crypto";
     if (exchange(s) === "FX") return "forex";
-    if (/^YAHOO:(\^|NIFTY|BSE-)/.test(s)) return "index";
-    if (/^YAHOO:.*\.(NS|BO)$/.test(s)) return "stock";
+    if (/^YAHOO:(\^|NIFTY|BSE-|HSTECH)/.test(s)) return "index";
+    if (/^YAHOO:.*\.(NS|BO)$/.test(s) || (exchangeOf(s) && /^(YAHOO|US):/.test(s))) return "stock";
     return "other";
   }
   const labelFor = (s) => quotes[s]?.label || ticker(s).replace(/\.(NS|BO)$/, "");
-  const marketFor = (s) => quotes[s]?.market || (/\.BO$|^YAHOO:\^BSE/.test(s) ? "BSE" : /^YAHOO:/.test(s) ? "NSE" : exchange(s));
+  const MARKET_NAME = { NSE: "NSE", US: "US", LSE: "LSE", TSE: "Tokyo", XETRA: "Xetra", HKEX: "HKEX" };
+  const marketFor = (s) => quotes[s]?.market || (/\.BO$|^YAHOO:\^BSE/.test(s) ? "BSE" : MARKET_NAME[exchangeOf(s)] || exchange(s));
   const BADGE_COLORS = ["#6b6b6b", "#18a57b", "#e5803a", "#8a6d3b", "#d9468f", "#0f9488", "#a16207", "#525252"];
   function badge(s) {
     const l = labelFor(s).replace(/^(NIFTY|BSE)\s+/, "");
@@ -480,11 +484,16 @@ export function initPanels(app) {
   function marketStatus(s) {
     const k = kindOf(s);
     if (k === "crypto") return [true, "Market open 24/7"];
-    const ist = new Date(Date.now() + 5.5 * 3600e3);
-    const day = ist.getUTCDay(), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    const day = new Date().getUTCDay();
     if (k === "forex") return day >= 1 && day <= 5 ? [true, "Market open"] : [false, "Market closed for the weekend"];
-    const open = day >= 1 && day <= 5 && mins >= 9 * 60 + 15 && mins < 15 * 60 + 30;
-    return [open, open ? "Market open · closes 15:30 IST" : "Market closed · opens 09:15 IST on trading days"];
+    // Stocks and indices: their own exchange's hours (lunch breaks in Tokyo and Hong Kong included).
+    const ex = exchangeOf(s);
+    if (!ex) return [false, ""];
+    const st = sessionNow(ex);
+    const tz = st.tzLabel === "IST" ? "IST" : `${st.tzLabel} time`;
+    if (st.open) return [true, `Market open · closes ${st.closes} ${tz}`];
+    if (st.lunch) return [false, `Lunch break · reopens ${st.opens} ${tz}`];
+    return [false, `Market closed · opens ${st.opens} ${tz}${st.opensDay ? ` ${st.opensDay}` : " on trading days"}`];
   }
   function drawDetails() {
     const box = $("#wlDetails");
@@ -499,7 +508,7 @@ export function initPanels(app) {
     const abs = absChange(price, pct);
     const cls = pct == null ? "" : pct >= 0 ? "up" : "down";
     const k = kindOf(s);
-    const cur = k === "stock" || k === "index" ? (k === "stock" ? "INR" : "") : k === "crypto" ? (/USDT$/.test(s) ? "USDT" : "USD") : "";
+    const cur = k === "stock" || k === "index" ? (k === "stock" ? currencyOf(s) || "" : "") : k === "crypto" ? (/USDT$/.test(s) ? "USDT" : "USD") : "";
     // Today's bars from the chart (UTC day: covers NSE hours and the crypto day).
     const dayStart = last ? Math.floor(last.time / 86400) * 86400 : 0;
     const today = bars.filter((b) => b.time >= dayStart);
@@ -721,10 +730,11 @@ export function initPanels(app) {
   }
 
   // ======================= CALENDAR =======================
-  let calFilter = "Medium", calView = "india", calMine = false;
+  // India's own calendar (RBI, F&O expiry, NSE holidays) when India is picked; the world feed otherwise.
+  let calFilter = "Medium", calView = countryCode() === "IN" ? "india" : "economic", calMine = false;
   const CAL_KIND = { rbi: "RBI", data: "Data", expiry: "Expiry", market: "Market", budget: "Budget" };
   async function renderCalendar() {
-    side.innerHTML = `<div class="pad row-flex"><select class="in" id="calV"><option value="india">India</option><option value="economic">World (outside the US)</option></select><span class="spacer"></span>${
+    side.innerHTML = `<div class="pad row-flex"><select class="in" id="calV"><option value="india">India</option><option value="economic">World</option></select><span class="spacer"></span>${
       calView === "economic" || calView === "india"
         ? '<select class="in" id="calF"><option value="all">All</option><option value="Medium">Medium + high</option><option value="High">High impact</option></select>'
         : `<label class="hint-text"><input type="checkbox" id="calMine" ${calMine ? "checked" : ""}> My watchlists</label>`

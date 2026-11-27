@@ -1,6 +1,7 @@
 // Symbol search, laid out like the usual charting apps: a search box, filter tabs (All, Stocks,
 // Indices, Crypto, Forex), and below them your recent symbols and popular ones before you type,
 // then live results. Arrow keys move, Enter opens, Esc closes.
+import { countryCode, HOME } from "./country.js";
 import { api, esc, ticker, logoUrl, logoImg } from "./api.js";
 import SYMBOLS from "./symbol-index.js";
 
@@ -95,7 +96,18 @@ export const POPULAR = {
     P("FX:AEDINR", "UAE dirham / Indian rupee", "forex", "FX"),
   ],
 };
-POPULAR.all = [POPULAR.index[0], POPULAR.index[1], POPULAR.index[2], POPULAR.stock[0], POPULAR.stock[1], POPULAR.stock[2], POPULAR.crypto[0], POPULAR.forex[0]];
+// Another country picked in the top bar: its indices and best-known shares are suggested instead.
+{
+  const code = countryCode();
+  if (code !== "IN") {
+    const H = HOME[code], EX = { US: "US", GB: "LSE", JP: "Tokyo", DE: "Xetra", HK: "HKEX" }[code];
+    const isIdx = (s) => /^YAHOO:(\^|HSTECH)/.test(s);
+    POPULAR.index = H.tiles.filter(([, s]) => isIdx(s)).map(([n, s]) => P(s, n, "index", EX));
+    POPULAR.stock = H.chips.filter(([, s]) => /^(US:|YAHOO:[^^]+\.(L|T|DE|HK)$)/.test(s)).map(([n, s]) => P(s, n, "stock", EX));
+    POPULAR.forex = [P("FX:EURUSD", "Euro / US dollar", "forex", "FX"), P("FX:GBPUSD", "British pound / US dollar", "forex", "FX"), P("FX:USDJPY", "US dollar / Japanese yen", "forex", "FX"), P("FX:USDINR", "US dollar / Indian rupee", "forex", "FX")];
+  }
+}
+POPULAR.all = [POPULAR.index[0], POPULAR.index[1], POPULAR.index[2], POPULAR.stock[0], POPULAR.stock[1], POPULAR.stock[2], POPULAR.crypto[0], POPULAR.forex[0]].filter(Boolean);
 
 export function recentSymbols() {
   try {

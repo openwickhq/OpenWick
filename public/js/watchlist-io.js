@@ -30,10 +30,16 @@ export function toExchangeTicker(sym) {
   if (INDEX_OUT[y]) return INDEX_OUT[y];
   if (/\.NS$/.test(y)) return `NSE:${y.slice(0, -3)}`;
   if (/\.BO$/.test(y)) return `BSE:${y.slice(0, -3)}`;
+  // Other countries' shares under their exchange's usual prefix.
+  const abroad = /^(.+)\.(L|T|DE|HK)$/.exec(y);
+  if (abroad) return `${{ L: "LSE", T: "TSE", DE: "XETR", HK: "HKEX" }[abroad[2]]}:${abroad[2] === "HK" ? String(Number(abroad[1])) : abroad[1]}`;
   return sym;
 }
 
-// Exchange ticker (or a bare NSE symbol) -> our symbol, or null when it isn't an Indian or crypto market.
+// Exchange prefixes for the other countries' shares, as files from other apps write them.
+const US_EX = ["US", "NASDAQ", "NYSE", "AMEX", "ARCA", "NYSEARCA", "BATS", "CBOE", "NYSEAMERICAN"];
+const ABROAD = { LSE: "L", LON: "L", TSE: "T", TYO: "T", JPX: "T", XETR: "DE", XETRA: "DE", ETR: "DE", FWB: "DE", HKEX: "HK", HKG: "HK" };
+// Exchange ticker (or a bare NSE symbol) -> our symbol, or null for a market OpenWick doesn't cover.
 export function fromExchangeTicker(raw) {
   const t = String(raw || "").trim().toUpperCase().replace(/\s+/g, "");
   if (!t) return null;
@@ -45,7 +51,12 @@ export function fromExchangeTicker(raw) {
   if (ex === "BSE") return /^[A-Z0-9&\-_.]+$/.test(code) ? `YAHOO:${code}.BO` : null;
   if (CRYPTO.includes(ex)) return `${ex}:${code}`;
   if (ex === "FX" || ex === "FX_IDC" || ex === "OANDA") return /^[A-Z]{6}$/.test(code) ? `FX:${code}` : null;
-  return null; // other countries' exchanges are left out
+  if (US_EX.includes(ex)) return /^[A-Z][A-Z0-9.\-]{0,9}$/.test(code) ? `US:${code.replace(/\./g, "-")}` : null;
+  if (ABROAD[ex] && /^[A-Z0-9.\-]{1,12}$/.test(code)) {
+    const suf = ABROAD[ex];
+    return `YAHOO:${suf === "HK" && /^\d+$/.test(code) ? code.padStart(4, "0") : code.replace(/\.$/, "")}.${suf}`;
+  }
+  return null; // other exchanges are left out
 }
 
 export function exportList(list) {

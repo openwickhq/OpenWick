@@ -25,7 +25,7 @@ electronVersion: 45.5.0
 linux:
   target: [AppImage, deb]
   category: Office;Finance
-  synopsis: Charts for Indian stocks, indices and crypto
+  synopsis: Charts for stocks, indices and crypto in India, the US, UK, Japan, Germany and Hong Kong
   maintainer: Sourav Chakraborty
   icon: build/icon.png
 win:

@@ -3,29 +3,34 @@
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, cls, mountSite, pageUrl } from "./site.js";
 import { indexMembers, rowsOf, slugOf, breadthStats, breadthHtml, groupOf, indexOptions, pct } from "./breadth.js";
+import { country, home } from "./country.js";
 
 await mountSite("markets");
+const C = country(), H = home(), INDIA = C.code === "IN";
+// Other countries: every index is broad market, so the group buttons aren't needed.
+if (!INDIA) $("#groups").classList.add("hidden");
+const MAIN = slugOf(C.list);
 
-const st = { index: new URLSearchParams(location.search).get("index") || "NIFTY-500", group: "", sort: null, dir: -1 };
+const st = { index: new URLSearchParams(location.search).get("index") || MAIN, group: "", sort: null, dir: -1 };
 let stocks = [], indices = [], members = [];
 
-const current = () => members.find((m) => slugOf(m.name) === st.index) || members.find((m) => m.name === "NIFTY 500") || members[0];
+const current = () => members.find((m) => slugOf(m.name) === st.index) || members.find((m) => m.name === C.list) || members[0];
 
 function drawTop() {
   const m = current();
   if (!m) return;
   st.index = slugOf(m.name);
-  if (!$("#index").options.length) $("#index").innerHTML = indexOptions(members);
+  if (!$("#index").options.length) $("#index").innerHTML = members.filter((x) => x.all).map((x) => `<option value="${slugOf(x.name)}">${esc(x.name)}</option>`).join("") + indexOptions(members.filter((x) => !x.all));
   $("#index").value = st.index;
   const q = indices.find((r) => r.symbol === m.symbol);
   const rows = rowsOf(stocks, m);
-  $("#head").innerHTML = `<a href="${esc(pageUrl(m.symbol))}">${esc(m.name)}</a>${q?.price != null ? ` · ${fmtPrice(q.price)} <b class="${cls(q.changePct)}">${fmtPct(q.changePct)}</b>` : ""} · <a href="/movers?tab=gainers&index=${st.index}">Gainers</a> · <a href="/movers?tab=losers&index=${st.index}">Losers</a>`;
+  $("#head").innerHTML = `${m.symbol ? `<a href="${esc(pageUrl(m.symbol))}">${esc(m.name)}</a>` : `<b>${esc(m.name)}</b>`}${q?.price != null ? ` · ${fmtPrice(q.price)} <b class="${cls(q.changePct)}">${fmtPct(q.changePct)}</b>` : ""} · <a href="/movers?tab=gainers&index=${st.index}">Gainers</a> · <a href="/movers?tab=losers&index=${st.index}">Losers</a>`;
   const missing = m.members.length - rows.length;
   $("#breadth").innerHTML = stocks.length
-    ? breadthHtml(rows) + (missing > 0 ? `<div class="sub muted bd-miss">${missing} of its ${m.members.length} stocks aren't in NIFTY 500, so they aren't counted.</div>` : "")
-    : `<div class="empty">Indian prices aren't loading right now.</div>`;
+    ? breadthHtml(rows) + (missing > 0 ? `<div class="sub muted bd-miss">${missing} of its ${m.members.length} stocks aren't in ${esc(C.list)}, so they aren't counted.</div>` : "")
+    : `<div class="empty">${esc(H.adjective)} prices aren't loading right now.</div>`;
   document.title = `${m.name} breadth · Markets · OpenWick`;
-  history.replaceState(null, "", st.index === "NIFTY-500" ? "/breadth" : `/breadth?index=${st.index}`);
+  history.replaceState(null, "", st.index === MAIN ? "/breadth" : `/breadth?index=${st.index}`);
 }
 
 function drawTable() {
@@ -64,7 +69,7 @@ function drawTable() {
 }
 
 async function load() {
-  const [s, ix, m] = await Promise.allSettled([api.get("/api/screener?universe=nse"), api.get("/api/screener?universe=indices"), indexMembers()]);
+  const [s, ix, m] = await Promise.allSettled([api.get(`/api/screener?universe=${H.universe}`), api.get(`/api/screener?universe=${H.indices}`), indexMembers()]);
   if (s.status === "fulfilled") stocks = s.value;
   if (ix.status === "fulfilled") indices = ix.value;
   if (m.status === "fulfilled") members = m.value;

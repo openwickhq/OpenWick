@@ -3,14 +3,17 @@
 // averages, and how each sector's stocks did. Also the list of indices whose members we know.
 import { api, esc, fmtPct } from "./api.js";
 import { cls } from "./site.js";
+import { countryCode } from "./country.js";
 
 export const pct = (n, of) => (of ? Math.round((n / of) * 100) : 0);
-export const slugOf = (name) => name.toUpperCase().replace(/&/g, "AND").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+export const slugOf = (name) => name.toUpperCase().replace(/&/g, " AND ").replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 // Broad market, strategy (factor) and sector or theme indices.
 const BROAD = /^(NIFTY (50|NEXT 50|100|200|500|TOTAL MARKET|MIDCAP SELECT|MIDCAP \d+|SMALLCAP \d+|LARGEMIDCAP \d+|MIDSMALLCAP \d+|MICROCAP \d+|SME EMERGE|IPO)|BSE (SENSEX|SENSEX 50|SENSEX NEXT 50|100|200|500|1000|150 MIDCAP|250 LARGEMIDCAP|250 SMALLCAP|400 MIDSMALLCAP|100 LARGECAP TMC|MIDCAP SELECT|SMALLCAP SELECT|IPO))$/;
 const STRATEGY = /ALPHA|VALUE|MOMENTUM|LOW VOLATILITY|HIGH BETA|ESG|SHARIAH|DIVIDEND|EQUAL WEIGHT|QUALITY/;
-export const groupOf = (name) => (BROAD.test(name) ? "broad" : STRATEGY.test(name) ? "strategy" : "sector");
+// The other countries' indices are all broad market; the US sector funds are sectors.
+const ABROAD = /^(S&P 500|Nasdaq|Dow Jones|Russell|CBOE|FTSE|Nikkei|TOPIX|DAX|MDAX|SDAX|TecDAX|Hang Seng)/;
+export const groupOf = (name) => (/^S&P 500 .+\([A-Z]+\)$/.test(name) ? "sector" : BROAD.test(name) || ABROAD.test(name) ? "broad" : STRATEGY.test(name) ? "strategy" : "sector");
 export const GROUPS = [["broad", "Broad market"], ["sector", "Sectors & themes"], ["strategy", "Strategy"]];
 
 // <option>s for an index picker, grouped; values are slugs (NIFTY-BANK).
@@ -21,16 +24,35 @@ export const indexOptions = (members) => GROUPS.map(([g, l]) => {
 
 // Each index's member stocks: [{ symbol, name, members: [ticker] }].
 let membersOnce;
-export const indexMembers = () => (membersOnce ||= api.get("/api/index-members").catch((e) => {
+// The picked country's (India's NIFTY indices, the S&P 500 and Nasdaq-100, the FTSE 100 and 250…).
+export const indexMembers = () => (membersOnce ||= api.get(countryCode() === "IN" ? "/api/index-members" : `/api/index-members?country=${countryCode()}`).catch((e) => {
   membersOnce = null;
   throw e;
 }));
 
-// The NIFTY 500 rows that belong to an index (all of them for NIFTY 500 itself).
+// The main list's rows that belong to an index (all of them for NIFTY 500 itself). Indian lists
+// name members by NSE ticker, the other countries' by symbol (US:AAPL, YAHOO:SHEL.L).
 export function rowsOf(rows, index) {
   if (!index) return rows;
   const set = new Set(index.members);
-  return rows.filter((r) => set.has(r.ticker));
+  return rows.filter((r) => set.has(r.ticker) || set.has(r.symbol));
+}
+
+// For countries without sector indices: each sector of the main list as a row, its moves weighted
+// by market cap (so Apple moves Technology more than a small chip maker).
+export function sectorRows(stocks) {
+  const by = {};
+  for (const r of stocks) if (r.sector && r.sector !== "Other") (by[r.sector] ||= []).push(r);
+  const avg = (l, k) => {
+    let w = 0, s = 0;
+    for (const r of l) if (r[k] != null) { const x = r.marketCap > 0 ? r.marketCap : 1; w += x; s += x * r[k]; }
+    return w ? s / w : null;
+  };
+  return Object.entries(by).filter(([, l]) => l.length >= 2).map(([name, l]) => ({
+    ticker: name, symbol: `SECTOR:${name}`, sectorOf: name, rows: l, members: l.length,
+    changePct: avg(l, "changePct"), perfW: avg(l, "perfW"), perfM: avg(l, "perfM"), perfY: avg(l, "perfY"),
+    marketCap: l.reduce((a, r) => a + (r.marketCap || 0), 0),
+  }));
 }
 
 export function breadthStats(rows) {

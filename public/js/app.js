@@ -1,3 +1,5 @@
+import { EXCHANGES } from "../lib/markets.js";
+import { homeExchange } from "./country.js";
 import { api, download, esc, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
 import { TOOLS, TOOL_BY_ID, TOOL_GROUPS } from "./drawings.js";
@@ -162,7 +164,9 @@ class App {
     };
     $("#gotoBtn").onclick = () => this.goToDate();
     const tick = () => {
-      $("#clock").textContent = `${new Date().toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false })} IST`;
+      // The picked country's exchange time (IST for India, New York time for the US…).
+      const ex = EXCHANGES[homeExchange()];
+      $("#clock").textContent = `${new Date().toLocaleTimeString("en-GB", { timeZone: ex.tz, hour12: false })} ${ex.tzLabel === "IST" ? "IST" : ex.tzLabel}`;
     };
     tick();
     setInterval(tick, 1000);
@@ -1126,7 +1130,7 @@ class App {
         head("Time scale") + row('<span>Time zone</span>', select("utc", [["false", "My local time"], ["true", "UTC"]])) +
         row(check("daySeparators", "Day separators (intraday)"), ""),
       canvas: head("Chart basic styles") + row('<span>Grid lines</span>', select("grid", [["both", "Vert and horz"], ["v", "Vert only"], ["h", "Horz only"], ["none", "None"]])) +
-        row(check("nseHours", "Shade NSE hours on crypto and forex (intraday)"), "") +
+        row(check("nseHours", `Shade ${EXCHANGES[homeExchange()].name} hours on crypto and forex (intraday)`), "") +
         head("Crosshair") + row(check("syncCrosshair", "Sync crosshair across charts"), ""),
       events: head("On the chart") + row(check("corpActions", "Dividends and splits"), "") +
         '<p class="st-note">Marked under the bar as D (dividend) and S (split), for NSE and BSE stocks.</p>',

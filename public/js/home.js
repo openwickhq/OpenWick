@@ -1,27 +1,25 @@
-// OpenWick home page: search, market summary tiles, Indian and crypto movers, news, calendar.
+// OpenWick home page for the country picked in the top bar: search, market summary tiles, that
+// country's movers, breadth and sectors, crypto movers, news and calendar.
 import { api, esc, fmtPrice, fmtPct } from "./api.js";
 import { $, chartUrl, pageUrl, cls, mountSite, onThemeChange, wireSearch, ago, badge } from "./site.js";
 import { breadthHtml } from "./breadth.js";
+import { country, countryCode, home } from "./country.js";
 
 await mountSite("home");
 onThemeChange(() => drawTiles());
 wireSearch($("#heroQ"), $("#heroResults"));
-$("#chips").innerHTML = [
-  ["NIFTY 50", "NIFTY"], ["BANK NIFTY", "BANKNIFTY"], ["SENSEX", "SENSEX"], ["RELIANCE", "RELIANCE"],
-  ["HDFC BANK", "HDFCBANK"], ["Bitcoin", "BTCUSDT"], ["Ethereum", "ETHUSDT"], ["USD/INR", "USDINR"],
-].map(([l, s]) => `<a href="${chartUrl(s)}">${esc(l)}</a>`).join("");
+const H = home(), C = country(), INDIA = countryCode() === "IN";
+$("#chips").innerHTML = H.chips.map(([l, s]) => `<a href="${chartUrl(s)}">${esc(l)}</a>`).join("");
+$("#heroQ").placeholder = `Search a stock, index or coin: ${H.placeholder}`;
+$("#stocksHead").textContent = `${H.adjective} stocks`;
+document.querySelectorAll("[data-list]").forEach((el) => (el.textContent = C.list));
+$("#newsHead").textContent = `${INDIA ? "Indian" : H.adjective} markets`;
+$("#newsSources").textContent = H.newsSources;
+$("#calHead").textContent = H.calendar;
+$("#calNote").textContent = H.calendarNote;
 
 // ---------- market summary tiles with sparklines ----------
-const TILES = [
-  ["NIFTY 50", "YAHOO:^NSEI"],
-  ["SENSEX", "YAHOO:^BSESN"],
-  ["NIFTY BANK", "YAHOO:^NSEBANK"],
-  ["NIFTY IT", "YAHOO:^CNXIT"],
-  ["INDIA VIX", "YAHOO:^INDIAVIX"],
-  ["Bitcoin", "BINANCE:BTCUSDT"],
-  ["Ethereum", "BINANCE:ETHUSDT"],
-  ["USD / INR", "FX:USDINR"],
-];
+const TILES = H.tiles;
 const spark = {};
 let tileQuotes = {};
 function sparkSvg(closes, up) {
@@ -127,10 +125,23 @@ const listRow = (sym, title, sub, price, pct) =>
 const empty = (msg) => `<div class="empty">${esc(msg)}</div>`;
 const skeleton = (ids) => ids.forEach((id) => ($(id).innerHTML = '<div class="skeleton"></div>'));
 
+// Sector moves for a country without sector indices: the main list grouped by sector, each
+// sector's move weighted by market cap.
+function sectorMoves(all) {
+  const by = {};
+  for (const r of all) {
+    if (r.changePct == null || !r.sector || r.sector === "Other") continue;
+    const g = (by[r.sector] ||= { w: 0, s: 0, n: 0 });
+    const w = r.marketCap > 0 ? r.marketCap : 1;
+    g.w += w; g.s += w * r.changePct; g.n++;
+  }
+  return Object.entries(by).filter(([, g]) => g.n >= 2).map(([name, g]) => ({ ticker: name, changePct: g.s / g.w, href: `/movers?tab=sectors` }));
+}
 async function loadIndia() {
   skeleton(["#nseUp", "#nseDown", "#sectors"]);
+  let all = [];
   try {
-    const all = await api.get("/api/screener?universe=nse");
+    all = await api.get(`/api/screener?universe=${H.universe}`);
     $("#breadth").innerHTML = breadthHtml(all);
     const rows = all.filter((r) => r.changePct != null && r.price != null);
     const sorted = [...rows].sort((a, b) => b.changePct - a.changePct);
@@ -138,18 +149,18 @@ async function loadIndia() {
     $("#nseDown").innerHTML = sorted.slice(-8).reverse().map((r) => listRow(r.symbol, r.ticker, r.name, r.price, r.changePct)).join("") || empty("No prices yet.");
   } catch (e) {
     $("#breadth").innerHTML = empty(`Breadth isn't available right now (${e.message}).`);
-    $("#nseUp").innerHTML = $("#nseDown").innerHTML = empty(`Indian prices aren't loading right now (${e.message}).`);
+    $("#nseUp").innerHTML = $("#nseDown").innerHTML = empty(`${H.adjective} prices aren't loading right now (${e.message}).`);
   }
   try {
     const SECTORS = ["NIFTY BANK", "NIFTY IT", "NIFTY AUTO", "NIFTY PHARMA", "NIFTY FMCG", "NIFTY METAL", "NIFTY REALTY", "NIFTY ENERGY", "NIFTY PSU BANK", "NIFTY INFRA", "NIFTY FINANCIAL SERVICES", "NIFTY MNC", "NIFTY CONSUMPTION", "NIFTY PSE"];
-    const rows = (await api.get("/api/screener?universe=indices")).filter((r) => SECTORS.includes(r.ticker) && r.changePct != null);
+    const rows = INDIA ? (await api.get("/api/screener?universe=indices")).filter((r) => SECTORS.includes(r.ticker) && r.changePct != null) : sectorMoves(all);
     rows.sort((a, b) => b.changePct - a.changePct);
     const max = Math.max(1, ...rows.map((r) => Math.abs(r.changePct)));
     $("#sectors").innerHTML = rows.map((r) => {
       const w = (Math.abs(r.changePct) / max) * 50;
       const col = r.changePct >= 0 ? "var(--up)" : "var(--down)";
       const pos = r.changePct >= 0 ? `left:50%;width:${w}%` : `left:${50 - w}%;width:${w}%`;
-      return `<a href="${pageUrl(r.symbol)}"><span class="nm">${esc(r.ticker.replace(/^NIFTY /, ""))}</span><span class="track"><span class="fill" style="${pos};background:${col}"></span></span><span class="v ${cls(r.changePct)}">${fmtPct(r.changePct)}</span></a>`;
+      return `<a href="${r.href || pageUrl(r.symbol)}"><span class="nm">${esc(r.ticker.replace(/^NIFTY /, ""))}</span><span class="track"><span class="fill" style="${pos};background:${col}"></span></span><span class="v ${cls(r.changePct)}">${fmtPct(r.changePct)}</span></a>`;
     }).join("") || empty("No sector prices yet.");
   } catch (e) {
     $("#sectors").innerHTML = empty(`Sector prices aren't loading right now (${e.message}).`);
@@ -184,7 +195,7 @@ async function loadNews(box, symbol) {
 
 async function loadCalendar() {
   try {
-    const rows = (await api.get("/api/calendar")).filter((r) => r.impact === "High" && Date.parse(r.date) > Date.now() - 6 * 3600e3);
+    const rows = (await api.get(INDIA ? "/api/calendar" : `/api/calendar?country=${countryCode()}`)).filter((r) => r.impact === "High" && Date.parse(r.date) > Date.now() - 6 * 3600e3);
     const KIND = { rbi: "RBI", data: "Data", expiry: "F&O", market: "NSE", budget: "Budget" };
     $("#calendar").innerHTML = rows.slice(0, 9).map((r) => {
       const d = new Date(r.date);
@@ -200,7 +211,7 @@ loadTiles();
 loadWatchlist();
 loadIndia();
 loadCrypto();
-loadNews("#newsIndia", "india");
+loadNews("#newsIndia", H.news);
 loadNews("#news", "crypto");
 loadCalendar();
 setInterval(async () => {

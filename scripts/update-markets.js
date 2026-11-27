@@ -134,7 +134,7 @@ const COUNTRY = {
     const spSet = new Set(sp.map((x) => x.s));
     const items = [...sp, ...ndx.filter((x) => !spSet.has(x.s))];
     return {
-      list: "S&P 500 and Nasdaq-100",
+      list: "S&P 500 + Nasdaq-100",
       items,
       indices: [
         { y: "^GSPC", n: "S&P 500", mem: sp.map((x) => x.s) },

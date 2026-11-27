@@ -1,9 +1,13 @@
-// News page: Indian market and crypto headlines, or headlines for one stock or coin.
+// News page: the picked country's market headlines and crypto's, or headlines for one stock or coin.
 import { api, esc } from "./api.js";
 import { $, mountSite, ago } from "./site.js";
+import { home, countryCode } from "./country.js";
+const C_CODE = countryCode();
 
+const H = home();
+const MARKET = H.news; // "india", "market:US"…
 const qp = new URLSearchParams(location.search);
-let topic = qp.get("symbol") ? null : qp.get("topic") === "crypto" ? "crypto" : "india";
+let topic = qp.get("symbol") ? null : qp.get("topic") === "crypto" ? "crypto" : MARKET;
 
 async function show(symbol, label) {
   document.querySelectorAll("#topics button").forEach((b) => b.classList.toggle("active", b.dataset.t === symbol));
@@ -29,7 +33,7 @@ $("#topics").onclick = (e) => {
   const t = e.target.closest("[data-t]")?.dataset.t;
   if (!t) return;
   $("#forSym").value = "";
-  history.replaceState(null, "", `/news?topic=${t}`);
+  history.replaceState(null, "", t === "crypto" ? "/news?topic=crypto" : "/news");
   show(t);
 };
 $("#forSym").onkeydown = (e) => {
@@ -40,11 +44,18 @@ $("#forSym").onkeydown = (e) => {
 };
 
 await mountSite("news");
+{
+  const b = $("#topics").querySelector('[data-t="india"]');
+  b.dataset.t = MARKET;
+  b.textContent = `${H.adjective} markets`;
+  const eg = { US: "AAPL, NVDA", GB: "SHEL, AZN", JP: "Toyota, 7203", DE: "SAP, Siemens", HK: "Tencent, 0700" }[C_CODE];
+  if (eg) $("#forSym").placeholder = `News for a stock or coin: ${eg}, SOL…`;
+}
 if (topic) show(topic);
 else {
   $("#forSym").value = qp.get("symbol");
   show(qp.get("symbol"), qp.get("symbol"));
 }
 setInterval(() => {
-  if (!$("#forSym").value) show(document.querySelector("#topics .active")?.dataset.t || "india");
+  if (!$("#forSym").value) show(document.querySelector("#topics .active")?.dataset.t || MARKET);
 }, 10 * 60e3);

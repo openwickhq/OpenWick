@@ -6,6 +6,8 @@
 //   • any sheet with a symbol, quantity and average price column
 // No DOM use, so it also runs under Node for the tests.
 
+import { fromExchangeTicker } from "./watchlist-io.js";
+
 // ---------- CSV ----------
 export function parseCsv(text) {
   const rows = [];
@@ -87,11 +89,20 @@ export async function parseXlsx(buf) {
 // ---------- rows -> holdings ----------
 const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const num = (v) => {
-  const n = parseFloat(String(v ?? "").replace(/[₹,\s]/g, ""));
+  const n = parseFloat(String(v ?? "").replace(/[₹$£€¥,\s]|HK\$|p$/g, ""));
   return Number.isFinite(n) ? n : 0;
 };
-// NSE symbol from Kite/Console names: "RELIANCE", "RELIANCE-BE", "NSE:TCS".
-const cleanSym = (s) => String(s || "").trim().toUpperCase().replace(/^(NSE|BSE):/, "").replace(/-(EQ|BE|BZ|SM|ST)$/, "");
+// NSE symbol from Kite/Console names: "RELIANCE", "RELIANCE-BE", "NSE:TCS". Other countries' shares
+// need their exchange: NASDAQ:AAPL or US:AAPL, LSE:SHEL or SHEL.L, TSE:7203 or 7203.T, XETR:SAP or
+// SAP.DE, HKEX:700 or 0700.HK; they're saved as the app's own symbol (US:AAPL, YAHOO:SHEL.L).
+export const cleanSym = (s) => {
+  const t = String(s || "").trim().toUpperCase();
+  if (/^(US|YAHOO):/.test(t) && !/\.(NS|BO)$/.test(t)) return t;
+  if (/^[A-Z0-9&.\-]+\.(L|T|DE|HK)$/.test(t)) return `YAHOO:${t}`;
+  const ex = /^([A-Z_]+):(.+)$/.exec(t);
+  if (ex && !["NSE", "BSE"].includes(ex[1])) return fromExchangeTicker(t) || t;
+  return t.replace(/^(NSE|BSE):/, "").replace(/-(EQ|BE|BZ|SM|ST)$/, "");
+};
 
 function findHeader(rows) {
   for (let i = 0; i < Math.min(rows.length, 40); i++) {

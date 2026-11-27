@@ -1,6 +1,10 @@
 // Right sidebar "Object tree" and "Data window" for the active chart.
 // Object tree: the chart's indicators, compared symbols and drawings, each with show/hide,
 // lock (drawings) and remove. Data window: every value under the crosshair (or the latest bar).
+import { currencyOf } from "./currency.js";
+import { currencySign } from "../lib/markets.js";
+// The dividend's currency: the symbol's own (pence for London shares).
+const divText = (sym, amt) => { const c = currencyOf(sym); return c === "GBX" ? `${amt}p` : `${currencySign(c || "INR")}${amt}`; };
 import { esc, fmtPrice, fmtPct, ticker } from "./api.js";
 import { BY_ID } from "../lib/indicators.js";
 import { TOOL_BY_ID } from "./drawings.js";
@@ -97,16 +101,16 @@ function dataHtml(pane, index) {
   const when = new Date(b.time * 1000);
   const intraday = isIntraday(pane.cfg.tf);
   const date = when.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", ...(pane.app.settings.utc ? { timeZone: "UTC" } : {}) });
-  const time = intraday ? when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", ...(pane.app.settings.utc ? { timeZone: "UTC" } : { timeZone: "Asia/Kolkata" }) }) : "";
+  const time = intraday ? when.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", ...(pane.app.settings.utc ? { timeZone: "UTC" } : {}) }) : "";
   const kv = (k, v, c = "") => `<div class="dw-row"><span>${k}</span><b class="${c}" ${c.startsWith("color:") ? `style="${c}"` : ""}>${v}</b></div>`;
   const up = chg == null ? "" : chg >= 0 ? "up" : "down";
   let h = `<div class="dw-head"><b>${esc(ticker(pane.cfg.symbol))}</b> <span class="muted">${esc(pane.cfg.tf)}</span><div class="muted">${esc(date)}${time ? ` · ${esc(time)}` : ""}${index == null ? " · latest bar" : ""}</div></div>`;
   h += `<div class="dw-sec">Price</div>`;
   h += kv("Open", fmtPrice(b.open)) + kv("High", fmtPrice(b.high)) + kv("Low", fmtPrice(b.low)) + kv("Close", fmtPrice(b.close), up);
   h += kv("Change", chg == null ? "—" : `${chg >= 0 ? "+" : ""}${fmtPrice(chg)}`, up) + kv("Change %", chg == null ? "—" : fmtPct((chg / prev.close) * 100), up);
-  h += kv("Range", fmtPrice(b.high - b.low)) + kv("Volume", b.volume ? Math.round(b.volume).toLocaleString("en-IN") : "—");
+  h += kv("Range", fmtPrice(b.high - b.low)) + kv("Volume", b.volume ? Math.round(b.volume).toLocaleString(/\.(NS|BO)$/.test(pane.cfg.symbol) ? "en-IN" : "en-US") : "—");
   for (const e of pane.eventsAt?.(b.time, bars[i + 1]?.time) || [])
-    h += e.kind === "split" ? kv("Split / bonus", esc(e.ratio), "color:#e5a43a") : kv("Dividend", `₹${e.amount}`, "color:#9e9e9e");
+    h += e.kind === "split" ? kv("Split / bonus", esc(e.ratio), "color:#e5a43a") : kv("Dividend", divText(pane.cfg.symbol, e.amount), "color:#9e9e9e");
   for (const ind of pane.cfg.indicators) {
     const def = BY_ID[ind.id];
     if (!def || ind.hidden) continue;

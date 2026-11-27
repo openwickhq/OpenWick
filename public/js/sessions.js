@@ -1,7 +1,9 @@
 // Intraday chart background: a dashed line where each new trading day starts, and (on 24-hour
-// markets such as crypto and forex) a light band over NSE trading hours, 09:15–15:30 IST on weekdays.
+// markets such as crypto and forex) a light band over the trading hours of the country picked in
+// the top bar (NSE 09:15–15:30 IST for India, New York 09:30–16:00 for the US…) on weekdays.
 // Drawn behind the candles as a Lightweight Charts series primitive.
-const IST = 19800;
+import { exchangeOf, localTime, EXCHANGES } from "../lib/markets.js";
+import { homeExchange } from "./country.js";
 
 export class SessionLayer {
   constructor(pane) {
@@ -27,8 +29,9 @@ export class SessionLayer {
     const bars = p.shown;
     if (!bars?.length || !p.isIntradayChart?.()) return;
     const showSep = s.daySeparators !== false;
-    const nseMarket = /^YAHOO:/.test(p.cfg.symbol);
-    const showBand = s.nseHours !== false && !nseMarket && !/^CSV:/.test(p.cfg.symbol);
+    const market = exchangeOf(p.cfg.symbol);
+    const band = EXCHANGES[homeExchange()];
+    const showBand = s.nseHours !== false && !market && !/^(CSV|SPREAD):/.test(p.cfg.symbol);
     if (!showSep && !showBand) return;
     const ts = p.chart.timeScale();
     const range = ts.getVisibleLogicalRange();
@@ -37,12 +40,12 @@ export class SessionLayer {
     const x = (i) => ts.logicalToCoordinate(i);
     const half = Math.max(0.5, ((x(from + 1) ?? 0) - (x(from) ?? 0)) / 2);
     const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-    // Indian symbols split days on India's calendar; others on the time the axis shows.
-    const off = nseMarket ? IST : s.utc ? 0 : -new Date().getTimezoneOffset() * 60;
+    // Stocks split days on their exchange's calendar; others on the time the axis shows.
+    const off = market ? localTime(EXCHANGES[market].tz, (bars[to]?.time ?? Date.now() / 1000) * 1000).offset : s.utc ? 0 : -new Date().getTimezoneOffset() * 60;
     const dayOf = (t) => Math.floor((t + off) / 86400);
     const inNse = (t) => {
-      const ist = t + IST, d = new Date(ist * 1000).getUTCDay(), m = Math.floor((ist % 86400) / 60);
-      return d >= 1 && d <= 5 && m >= 555 && m < 930;
+      const lt = localTime(band.tz, t * 1000);
+      return lt.day >= 1 && lt.day <= 5 && band.sessions.some(([a, b]) => lt.mins >= a && lt.mins < b);
     };
     ctx.save();
     if (showBand) {

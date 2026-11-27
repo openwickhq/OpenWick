@@ -1,29 +1,38 @@
 // Heatmap page: a full-window treemap. Colour = today's change; click a tile to open its chart.
 import { api, esc, fmtPrice, fmtPct, fmtNum } from "./api.js";
 import { $, chartUrl, pageUrl, mountSite, onThemeChange, fmtCap, openWatchMenu } from "./site.js";
+import { country, home } from "./country.js";
+
+// The picked country's stock list and indices (nse / indices for India, us / us-indices…), and crypto.
+const C = country(), H = home(), INDIA = C.code === "IN";
+const STOCKS = H.universe, INDEXES = H.indices;
 
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const qp = new URLSearchParams(location.search);
 const hm = {
-  universe: ["nse", "indices", "crypto500", "crypto"].includes(qp.get("market")) ? qp.get("market") : "nse",
+  universe: [STOCKS, INDEXES, "crypto500", "crypto"].includes(qp.get("market")) ? qp.get("market") : STOCKS,
   size: "marketCap",
   rows: null,
   tiles: [],
 };
 const NOTES = {
-  nse: "Every NIFTY 500 company, grouped by industry and sized by market cap (shares outstanding × live price).",
+  [STOCKS]: `Every ${C.list} company, grouped by ${INDIA ? "industry" : "sector"} and sized by market cap (shares outstanding × live price).`,
+  ...(INDIA ? {} : { [INDEXES]: `${C.name}'s indices, sized by the market cap of their member companies where OpenWick knows them; the others sit in "Size not known" at one equal size.` }),
   indices: "Indian indices sized by the market cap of their member companies (NSE's member lists). Broad indices overlap: NIFTY 500 includes NIFTY 50. Indices with no free member list (all BSE indices and NSE's newer thematic ones) sit in \"Size not known\" at one equal size.",
   crypto500: "The 500 biggest coins, sized by market cap or 24-hour volume.",
   crypto: "The 100 most traded Binance USDT pairs, sized by 24-hour volume.",
 };
-const grouped = () => hm.universe === "nse" || hm.universe === "indices";
+const isStocks = () => hm.universe === STOCKS;
+const isIdx = () => hm.universe === INDEXES;
+const grouped = () => isStocks() || isIdx();
 // Index groups: broad market, sectors, themes and strategies; unsized ones get their own group.
 const UNSIZED = "Size not known";
 const BROAD = /^(NIFTY (50|NEXT 50|100|200|500|MIDCAP (50|100|150|SELECT)|SMALLCAP (50|100|250)|LARGEMIDCAP 250|MIDSMALLCAP 400|MICROCAP 250|TOTAL MARKET)|BSE (SENSEX( 50| NEXT 50)?|100|200|500|1000|150 MIDCAP|250 (LARGEMIDCAP|SMALLCAP)|400 MIDSMALLCAP|100 LARGECAP TMC|MIDCAP SELECT|SMALLCAP SELECT))$/;
 const SECTOR = /\b(BANK|BANKEX|IT|AUTO|FMCG|METAL|PHARMA|REALTY|ENERGY|MEDIA|FINANCIAL SERVICES|HEALTHCARE|HEALTH CARE|OIL AND GAS|OIL&GAS|CONSUMER DURABLES|CHEMICALS|CAPITAL MARKETS|CAPITAL GOODS|INFORMATION TECHNOLOGY|TECK|TELECOMMUNICATION|UTILITIES|POWER|INDUSTRIALS|COMMODITIES|CONSUMER DISCRETIONARY|DIVERSIFIED FINANCIALS|PRIVATE BANKS?|PSU BANK)$/;
 function groupOf(r) {
-  if (hm.universe === "nse") return r.sector || "Other";
+  if (isStocks()) return r.sector || "Other";
   if (!(r.marketCap > 0)) return UNSIZED;
+  if (!INDIA) return "Broad market";
   if (r.ticker === "NIFTY100 EQUAL WEIGHT") return "Themes & strategies";
   return BROAD.test(r.ticker) ? "Broad market" : SECTOR.test(r.ticker) ? "Sectors" : "Themes & strategies";
 }
@@ -93,14 +102,14 @@ function draw() {
   ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, W, H);
   // NSE: market cap; a company without a share count gets the smallest known size so it still shows.
-  const minCap = hm.universe === "nse" ? Math.min(...hm.rows.map((r) => r.marketCap).filter((v) => v > 0)) : 0;
+  const minCap = isStocks() ? Math.min(...hm.rows.map((r) => r.marketCap).filter((v) => v > 0)) : 0;
   // Indices without a size share a quarter of the map, all one size.
-  const sizedIdx = hm.universe === "indices" ? hm.rows.filter((r) => r.marketCap > 0) : [];
-  const unsizedIdx = hm.universe === "indices" ? hm.rows.length - sizedIdx.length : 0;
-  const unsizedVal = unsizedIdx ? sizedIdx.reduce((a, r) => a + r.marketCap, 0) / 3 / unsizedIdx : 1;
+  const sizedIdx = isIdx() ? hm.rows.filter((r) => r.marketCap > 0) : [];
+  const unsizedIdx = isIdx() ? hm.rows.length - sizedIdx.length : 0;
+  const unsizedVal = unsizedIdx ? (sizedIdx.reduce((a, r) => a + r.marketCap, 0) || unsizedIdx) / 3 / unsizedIdx : 1;
   const val = (r) =>
-    hm.universe === "indices" ? (r.marketCap > 0 ? r.marketCap : unsizedVal)
-      : hm.universe === "nse" ? (r.marketCap > 0 ? r.marketCap : Number.isFinite(minCap) ? minCap : 1)
+    isIdx() ? (r.marketCap > 0 ? r.marketCap : unsizedVal)
+      : isStocks() ? (r.marketCap > 0 ? r.marketCap : Number.isFinite(minCap) ? minCap : 1)
         : Math.max(1, hm.size === "volume" || hm.universe === "crypto" ? r.volume || 0 : r.marketCap || r.volume || 0);
   let tiles = [];
   if (grouped()) {
@@ -132,14 +141,15 @@ function draw() {
     ctx.fillRect(t.x + 0.5, t.y + 0.5, t.w - 1, t.h - 1);
     if (t.w > 34 && t.h > 20) {
       let fs = Math.max(10, Math.min(26, Math.sqrt(t.w * t.h) / 5));
-      let name = hm.universe === "indices" ? t.ticker : t.ticker.replace(/USDT$/, "");
+      // Tokyo and Hong Kong codes are numbers (7203, 0700): their tiles show the company's name.
+      let name = isIdx() ? t.ticker : /^\d+$/.test(t.ticker) ? shortCo(t.name) : t.ticker.replace(/USDT$/, "");
       ctx.fillStyle = "#fff";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `9px -apple-system, Segoe UI, sans-serif`;
       // Small index tiles: drop "NIFTY "/"BSE " when the full name can't fit, so "NIFTY INDIA DEFENCE"
       // reads "INDIA DEFENCE" rather than "NIFTY IND".
-      if (hm.universe === "indices" && ctx.measureText(name).width > t.w - 6) name = name.replace(/^(NIFTY|BSE)\s?/, "");
+      if (isIdx() && ctx.measureText(name).width > t.w - 6) name = name.replace(/^(NIFTY|BSE)\s?/, "");
       ctx.font = `600 ${fs}px -apple-system, Segoe UI, sans-serif`;
       // Shrink the name to fit the tile before cutting it short.
       while (fs > 9 && ctx.measureText(name).width > t.w - 6) {
@@ -172,7 +182,7 @@ $("#hm").onmousemove = (e) => {
     tip.className = "tip";
     document.body.appendChild(tip);
   }
-  tip.innerHTML = `<b>${esc(t.ticker)}</b> ${esc(t.name || "")}<br>${fmtPrice(t.price)} <span class="${t.changePct >= 0 ? "up" : "down"}">${fmtPct(t.changePct)}</span>${t.sector ? `<br><span class="muted">${esc(hm.universe === "indices" ? `${t.sector} · ${groupOf(t)}` : t.sector)}</span>` : ""}${t.marketCap ? `<br>Market cap ${fmtCap(t.marketCap, true)}${t.members ? ` · ${t.members} companies` : ""}` : hm.universe === "indices" ? "<br>Size not known (no free member list)" : ""}${t.volume && !grouped() ? `<br>Volume ${fmtNum(t.volume)}` : ""}<br><span class="muted">Click to open · right-click to add to a watchlist</span>`;
+  tip.innerHTML = `<b>${esc(t.ticker)}</b> ${esc(t.name || "")}<br>${fmtPrice(t.price)} <span class="${t.changePct >= 0 ? "up" : "down"}">${fmtPct(t.changePct)}</span>${t.sector ? `<br><span class="muted">${esc(isIdx() ? `${t.sector} · ${groupOf(t)}` : t.sector)}</span>` : ""}${t.marketCap ? `<br>Market cap ${fmtCap(t.marketCap, /^crypto/.test(hm.universe) ? "USD" : C.cur)}${t.members ? ` · ${t.members} companies` : ""}` : isIdx() ? "<br>Size not known (no free member list)" : ""}${t.volume && !grouped() ? `<br>Volume ${fmtNum(t.volume)}` : ""}<br><span class="muted">Click to open · right-click to add to a watchlist</span>`;
   const right = e.clientX + 260 > innerWidth;
   tip.style.left = `${right ? e.clientX - 250 : e.clientX + 14}px`;
   tip.style.top = `${e.clientY + 14}px`;
@@ -207,6 +217,8 @@ async function load() {
   }
   draw();
 }
+// "Toyota Motor Corporation" -> "Toyota Motor", "Tencent Holdings Limited" -> "Tencent".
+const shortCo = (n) => String(n || "").replace(/,?\s*(Co\.,? ?Ltd\.?|Corporation|Corp\.?|Holdings?|Group|Limited|Ltd\.?|Inc\.?|K\.K\.|Company|Incorporated)\b.*$/i, "").replace(/[\s(,]+$/, "").trim() || n;
 function pick(u) {
   hm.universe = u;
   document.querySelectorAll("#markets button").forEach((b) => b.classList.toggle("active", b.dataset.u === u));
@@ -228,6 +240,13 @@ window.addEventListener("resize", draw);
 onThemeChange(() => { draw(); drawLegend(); });
 
 await mountSite("heatmap");
+{
+  const [st, ix] = $("#markets").children;
+  st.dataset.u = STOCKS;
+  st.textContent = `${C.list} by ${INDIA ? "industry" : "sector"}`;
+  ix.dataset.u = INDEXES;
+  ix.textContent = `${H.adjective} indices`;
+}
 pick(hm.universe);
 setInterval(async () => {
   try {
