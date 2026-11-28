@@ -357,10 +357,8 @@ if (!app.requestSingleInstanceLock()) {
     screen.on("display-metrics-changed", applyZoom);
     screen.on("display-added", applyZoom);
     screen.on("display-removed", applyZoom);
-    // Quietly, a few seconds after start and then every 6 hours: tell the user only if there's
-    // something new.
+    // Once, quietly, a few seconds after the app opens: tell the user only if there's something new.
     setTimeout(() => checkForUpdates(true), 8000);
-    setInterval(() => checkForUpdates(true), 6 * 3600e3);
     app.on("activate", () => { if (!win) createWindow(); });
   });
 
