@@ -8,7 +8,7 @@ const VIEWS = [
   ["financials", "Financials", '<path d="M5 20V10M10 20V4M15 20v-7M20 20V8"/>'],
   ["seasonals", "Seasonals", '<path d="M3 15c3-6 5-6 8-2s5 4 10-4"/><path d="M3 20h18"/>'],
   ["news", "News", '<path d="M5 5h11v14H7a2 2 0 0 1-2-2zM16 9h3v8a2 2 0 0 1-2 2M8 9h5M8 12h5M8 15h3"/>'],
-  ["technicals", "Technicals", '<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12 17l4-5"/>'],
+  ["technicals", "Technicals", '<path d="M6.3 18.7A8 8 0 1 1 17.7 18.7"/><path d="M12 5v1.6M5 13h1.6M17.4 13H19M7 8l1.1 1.1M17 8l-1.1 1.1"/><path d="M12 13l3.2-3.6"/><circle cx="12" cy="13" r="1.3"/>'],
 ];
 const $ = (s) => document.querySelector(s);
 
