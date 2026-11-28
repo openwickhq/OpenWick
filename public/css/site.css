@@ -97,7 +97,16 @@ html.page body { background: var(--bg); }
 .empty { color: var(--muted); padding: 10px 4px; font-size: 13px; }
 .skeleton { height: 120px; border-radius: 10px; background: linear-gradient(90deg, var(--panel-2), var(--hover), var(--panel-2)); background-size: 200% 100%; animation: sk 1.2s infinite linear; }
 @keyframes sk { to { background-position: -200% 0; } }
-.h-foot { border-top: 1px solid var(--border); padding: 22px 28px; color: var(--muted); font-size: 12.5px; text-align: center; }
+.h-foot { border-top: 1px solid var(--border); padding: 22px 28px 26px; color: var(--muted); font-size: 13px; }
+.hf-row, .hf-legal { max-width: 1200px; margin: 0 auto; }
+.hf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.hf-brand { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; }
+.hf-brand img { border-radius: 4px; }
+.hf-meta { flex: 1; min-width: 0; }
+.hf-sep { margin: 0 8px; opacity: .5; }
+.hf-link { color: var(--text); text-decoration: none; font-weight: 500; }
+.hf-link:hover { text-decoration: underline; }
+.hf-legal { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.6; opacity: .85; }
 
 /* ---------- shared page parts (screener, heatmap, news) ---------- */
 .wrap.wide { max-width: none; }
