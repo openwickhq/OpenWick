@@ -1,7 +1,7 @@
-// The chart's right-click menu. On a drawing: that drawing's actions (alert, clone, copy, lock,
-// hide, order, remove). Anywhere else: actions at the price under the mouse (copy it, an alert
-// there, a horizontal line there), then indicators, drawings and chart tools. Each row shows its
-// keyboard shortcut, so the menu also teaches them.
+// The chart's right-click menu, kept short (8 rows on a drawing, 10 at most elsewhere). On a
+// drawing: that drawing's actions (alert, clone, copy, lock, hide, order, remove). Anywhere else:
+// an alert, a horizontal line or a copy at the price under the mouse, then indicators, drawings and
+// settings. Each row shows its keyboard shortcut, so the menu also teaches them.
 import { esc, fmtPrice, ticker } from "./api.js";
 import { TOOL_BY_ID } from "./drawings.js";
 import { ask } from "./dialog.js";
@@ -65,29 +65,23 @@ export function openChartMenu(pane, e) {
     sep();
     row("d-remove", "trash", "Remove", "Del", { danger: true });
   } else {
+    // At most 10 rows: the price under the mouse, then the chart. The rest is in the top bar.
     row("reset", "reset", "Reset chart view", "Alt+R");
     if (priceTxt != null) {
       sep();
-      row("copy-price", "copy", `Copy price ${esc(priceTxt)}`);
       row("alert-price", "alert", `Add alert at ${esc(priceTxt)}…`);
       row("hline-price", "hline", `Horizontal line at ${esc(priceTxt)}`);
+      row("copy-price", "copy", `Copy price ${esc(priceTxt)}`);
       if (app.drawingClipboard) row("paste", "paste", "Paste drawing", "Ctrl+V");
     }
     sep();
     row("indicators", "ind", "Add indicator…", "/");
-    row("compare", "compare", "Compare with another symbol…");
-    row("tree", "tree", "Object tree and data window");
-    sep();
     const items = d.items;
     const allHidden = items.length && items.every((x) => x.hidden);
-    const allLocked = items.length && items.every((x) => x.locked);
-    row("hide-all", allHidden ? "eye" : "eyeOff", allHidden ? "Show all drawings" : "Hide all drawings", "Alt+Shift+H", { off: !items.length });
-    row("lock-all", allLocked ? "unlock" : "lock", allLocked ? "Unlock all drawings" : "Lock all drawings", "Alt+Shift+L", { off: !items.length });
+    row("hide-all", allHidden ? "eye" : "eyeOff", allHidden ? "Show drawings" : "Hide drawings", "Alt+Shift+H", { off: !items.length });
     row("clear-draw", "trash", `Remove ${items.length || "all"} drawing${items.length === 1 ? "" : "s"}…`, "", { danger: true, off: !items.length });
     row("clear-ind", "trash", "Remove all indicators…", "", { danger: true, off: !pane.cfg.indicators.length });
     sep();
-    row("image", "image", "Save chart image", "Alt+Shift+S");
-    row("csv", "csv", "Export chart data (CSV)");
     row("settings", "gear", "Chart settings…");
   }
 

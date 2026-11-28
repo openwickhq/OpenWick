@@ -1,6 +1,6 @@
 import { EXCHANGES } from "../lib/markets.js";
 import { homeExchange } from "./country.js";
-import { api, download, esc, ticker, exchange, TAB_ID } from "./api.js";
+import { api, download, esc, fmtPrice, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
 import { TOOLS, TOOL_BY_ID, TOOL_GROUPS } from "./drawings.js";
 import {
@@ -20,6 +20,7 @@ import { openSymbolSearch } from "./sym-search.js";
 import { initPickMenus, syncPickMenus } from "./pick-menus.js";
 import { ask, askText } from "./dialog.js";
 import "./selects.js";
+import { initTopbarFit } from "./topbar-fit.js";
 
 // Drawing tool shortcuts, as in other charting apps. Alt+R stays "reset chart view".
 // Alt + a letter picks a drawing tool. (Alt+R resets the view and Alt+A adds an alert.)
@@ -124,6 +125,7 @@ class App {
     for (const d of FUND_INDICATORS) registerIndicator(d);
     await this.loadCustomIndicators();
     this.buildToolbar();
+    initTopbarFit();
     this.buildRangebar();
     this.buildDrawbar();
     this.setLayout(this.state.layout, false);
@@ -712,6 +714,36 @@ class App {
     syncPickMenus(this);
     $("#logBtn").classList.toggle("on", !!p.cfg.log);
     $("#replayBtn").classList.toggle("on", !!p.replay);
+    this.updateTitle();
+  }
+
+  // The browser tab shows the active chart's symbol, last price and change, like
+  // "RELIANCE 1,412.30 ▲ +0.85%". The change is against the previous day's close (the previous
+  // bar on a daily or longer chart).
+  updateTitle() {
+    const p = this.active;
+    if (!p) return;
+    const name = $("#symbolLabel").textContent || ticker(p.cfg.symbol);
+    const bars = p.replay ? [] : (p.bars || []).filter((b) => Number.isFinite(b.close));
+    const last = bars.at(-1);
+    if (!last) {
+      document.title = `${name} · OpenWick`;
+      return;
+    }
+    let prev = null;
+    if (parseTf(p.cfg.tf).seconds >= 86400) prev = bars.at(-2)?.close;
+    else {
+      const day = (t) => Math.floor((p.toChart ? p.toChart(t) : t) / 86400);
+      const today = day(last.time);
+      for (let i = bars.length - 2; i >= 0; i--) if (day(bars[i].time) < today) { prev = bars[i].close; break; }
+    }
+    let chg = "";
+    if (prev) {
+      const pct = ((last.close - prev) / prev) * 100;
+      chg = ` ${pct > 0 ? "▲" : pct < 0 ? "▼" : "•"} ${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(2)}%`;
+    }
+    const title = `${name} ${fmtPrice(last.close)}${chg}`;
+    if (document.title !== title) document.title = title;
   }
 
   setTf(tf) {
@@ -1461,6 +1493,7 @@ class App {
   // ---------- prices, alerts, status ----------
   onPrice(symbol, price) {
     this.prices[symbol] = price;
+    if (symbol === this.active?.cfg.symbol) this.updateTitle();
     for (const fn of this.priceListeners) fn(symbol, price);
   }
 

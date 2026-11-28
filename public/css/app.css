@@ -135,12 +135,19 @@ svg {
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* Never scrolls: topbar-fit.js folds it to fit instead. */
+  overflow: hidden;
+  min-width: 0;
 }
-.topbar::-webkit-scrollbar {
-  height: 0;
-}
+.topbar > * { flex-shrink: 0; }
+.topbar > .spacer { flex: 1 1 0; min-width: 4px; }
+.topbar .tb-fold, .topbar .tb-more, #moreDd[hidden] { display: none !important; }
+.topbar #layoutName { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar.tight #symbolLabel { display: inline-block; max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.more-menu { min-width: 230px; }
+.more-menu button svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.more-menu .cm-l { flex: 1; }
+.more-menu .n { color: var(--muted); font-size: 12px; padding-left: 16px; }
 .brand {
   display: flex;
   align-items: center;
