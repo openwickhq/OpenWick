@@ -77,7 +77,7 @@ export function initPanels(app) {
   };
   $("#bottomMax").onclick = () => setBottomMax(!bottomEl.classList.contains("max"));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && bottomEl.classList.contains("max") && !document.querySelector(".ow-dlg-wrap, .se-root")) setBottomMax(false);
+    if (e.key === "Escape" && bottomEl.classList.contains("max") && !document.querySelector(".ow-dlg-wrap, .sx")) setBottomMax(false);
   }, true);
   $("#testerBtn").onclick = () => showBottom("tester", true);
   const syncTesterBtn = () => $("#testerBtn").classList.toggle("on", bottomTab === "tester" && !bottomEl.classList.contains("collapsed"));

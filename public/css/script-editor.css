@@ -1,0 +1,210 @@
+/* Script editor (public/js/script-editor.js): a full-screen workspace.
+   Top bar, then two panes: code (with a status line) and preview (inputs, chart, backtest).
+   Everything is scoped under .sx and resets what the app's general styles would otherwise add. */
+
+body.sx-open { overflow: hidden; }
+.sx {
+  --sx-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sx-warn: #e5a43a;
+  position: fixed; inset: 0; z-index: 75;
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text);
+  font-size: 13px; line-height: 1.4;
+}
+.sx *, .sx *::before, .sx *::after { box-sizing: border-box; }
+.sx span, .sx b, .sx em, .sx small { flex: none; overflow: visible; text-overflow: clip; max-width: none; }
+.sx svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.sx code { font-family: var(--sx-mono); font-size: 12px; padding: 1px 4px; border-radius: 4px; background: var(--accent-soft); }
+.sx :focus-visible { outline: 2px solid var(--sx-warn); outline-offset: 1px; }
+.sx-fill { flex: 1 !important; }
+.sx [hidden] { display: none !important; }
+
+/* ---------- buttons ---------- */
+.sx-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px; margin: 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--panel-2); color: var(--text);
+  font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer;
+}
+.sx-btn:hover { background: var(--hover); }
+.sx-btn.ghost { background: transparent; border-color: transparent; }
+.sx-btn.ghost:hover { background: var(--hover); }
+.sx-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.sx-btn.primary:hover { opacity: .9; }
+.sx-btn.icon { width: 32px; padding: 0; justify-content: center; background: transparent; border-color: transparent; color: var(--muted); }
+.sx-btn.icon:hover { color: var(--text); background: var(--hover); }
+.sx-btn.icon[aria-pressed="true"] { color: var(--text); }
+.sx-btn.small { height: 26px; padding: 0 9px; font-size: 12px; }
+.sx-btn.icon.small { width: 26px; padding: 0; }
+.sx-btn svg { width: 15px; height: 15px; }
+.sx-btn [d^="M8 5.5"] { fill: currentColor; stroke: none; }
+.sx-link { margin: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.sx-link:hover { color: var(--sx-warn); }
+
+/* ---------- top bar ---------- */
+.sx-bar {
+  flex: none; display: flex; align-items: center; gap: 6px;
+  height: 52px; padding: 0 12px;
+  border-bottom: 1px solid var(--border); background: var(--panel);
+  min-width: 0; overflow: hidden;
+}
+.sx-div { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+.sx-title { display: flex; align-items: center; gap: 10px; min-width: 0; margin-left: 4px; }
+.sx-title input {
+  min-width: 100px; max-width: 34vw; height: 32px; padding: 0 10px; margin: 0;
+  border: 1px solid transparent; border-radius: 8px; background: transparent;
+  color: var(--text); font: inherit; font-size: 15px; font-weight: 600;
+}
+.sx-title input:hover { border-color: var(--border); }
+.sx-title input:focus { outline: none; border-color: var(--muted); background: var(--bg); }
+.sx-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  background: var(--accent-soft); color: var(--muted); white-space: nowrap;
+}
+.sx-tag.strategy { color: var(--sx-warn); background: rgba(229, 164, 58, .13); }
+.sx-state { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.sx-state.warn { color: var(--sx-warn); }
+.sx-state.warn::before { content: "● "; }
+
+/* ---------- two panes ---------- */
+.sx-main {
+  --sx-prev: 44%;
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: minmax(0, 1fr) 6px minmax(0, var(--sx-prev));
+  overflow: hidden;
+}
+.sx-main.no-prev { grid-template-columns: minmax(0, 1fr); }
+.sx-main.no-prev .sx-split, .sx-main.no-prev .sx-prev { display: none; }
+.sx-main.stack { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.25fr) 1px minmax(0, 1fr); }
+.sx-main.stack .sx-split { cursor: default; pointer-events: none; }
+.sx-main.stack .sx-prev { overflow-y: auto; }
+.sx-main.stack .sx-chart { flex: none; height: 300px; }
+.sx-main.stack .sx-inputs { max-height: none; }
+.sx-main.stack.no-prev { grid-template-rows: minmax(0, 1fr); }
+.sx-split { background: var(--border); cursor: col-resize; touch-action: none; }
+.sx-split:hover, .sx-split:focus-visible { background: var(--muted); outline: none; }
+
+/* ---------- code ---------- */
+.sx-code { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.sx-ed {
+  position: relative; flex: 1; min-height: 0; display: flex; overflow: hidden;
+  background: var(--chart-bg);
+  font-family: var(--sx-mono); font-size: 13.5px; line-height: 21px; tab-size: 2;
+}
+.sx-gut { flex: none; width: 52px; padding: 14px 12px 14px 0; text-align: right; color: var(--muted); opacity: .55; user-select: none; will-change: transform; }
+.sx-gut div { height: 21px; }
+.sx-gut .bad { color: var(--down); opacity: 1; font-weight: 700; }
+.sx-area { position: relative; flex: 1; min-width: 0; overflow: hidden; border-left: 1px solid var(--chart-border); }
+.sx-hl, .sx-area textarea {
+  margin: 0; padding: 14px 18px 50vh 16px;
+  font: inherit; line-height: inherit; letter-spacing: 0; tab-size: 2;
+  white-space: pre; word-wrap: normal; border: 0;
+}
+.sx-hl { position: absolute; top: 0; left: 0; min-width: 100%; color: var(--text); background: none; pointer-events: none; will-change: transform; }
+.sx-area textarea {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  resize: none; outline: none; overflow: auto; border-radius: 0; box-shadow: none;
+  background: transparent; color: transparent; caret-color: var(--text);
+}
+.sx-area textarea::selection { background: rgba(229, 164, 58, .3); color: transparent; }
+.sx-hl i { font-style: normal; }
+.sx-hl .c { color: var(--muted); font-style: italic; }
+.sx-hl .s { color: #8fc58a; }
+.sx-hl .n { color: #e5a43a; }
+.sx-hl .k { color: #e8846b; }
+.sx-hl .t, .sx-hl .p { color: #e0c46c; }
+.sx-hl .t { font-weight: 600; }
+.sx-hl .y { color: #c9c9c9; }
+[data-theme="light"] .sx-hl .s { color: #3f7d3a; }
+[data-theme="light"] .sx-hl .n { color: #a8650b; }
+[data-theme="light"] .sx-hl .k { color: #b3442b; }
+[data-theme="light"] .sx-hl .t, [data-theme="light"] .sx-hl .p { color: #8a6a00; }
+[data-theme="light"] .sx-hl .y { color: #3a3a3a; }
+
+/* The error box, between the code and the status line. */
+.sx-err { flex: none; max-height: 34%; overflow: auto; border-top: 1px solid var(--down); background: color-mix(in srgb, var(--down) 9%, var(--panel)); }
+.sx-err-h { display: flex; align-items: center; gap: 8px; padding: 8px 10px 0 14px; color: var(--down); }
+.sx-err-h b { font-weight: 600; }
+.sx-err pre { margin: 0; padding: 6px 14px 12px; font-family: var(--sx-mono); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: var(--text); }
+
+.sx-status {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  height: 32px; padding: 0 14px; border-top: 1px solid var(--border); background: var(--panel);
+  font-size: 12.5px; color: var(--muted); min-width: 0;
+}
+.sx-msg { display: flex !important; align-items: center; gap: 6px; flex: 1 !important; min-width: 0; overflow: hidden; }
+.sx-msg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; min-width: 0; }
+.sx-msg svg { width: 15px; height: 15px; }
+.sx-msg.ok { color: var(--up); }
+.sx-msg.err { color: var(--down); }
+.sx-pos { white-space: nowrap; }
+
+/* ---------- preview ---------- */
+.sx-prev { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--bg); }
+.sx-prev-h { flex: none; display: flex; align-items: baseline; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.sx-prev-h b { font-size: 13px; }
+.sx-prev-h span { color: var(--muted); font-size: 12.5px; }
+.sx-sub { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; min-width: 0; }
+.sx-sub b { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.sx-sub > span { flex: 1 !important; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-inputs { flex: none; margin: 0; padding: 12px 16px 14px; border-bottom: 1px solid var(--border); max-height: 40%; overflow-y: auto; }
+.sx-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px 12px; }
+.sx-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sx-field label { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-field input, .sx-field select {
+  width: 100%; height: 30px; padding: 0 8px; margin: 0;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--panel);
+  color: var(--text); font: inherit; font-size: 13px;
+}
+.sx-field input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); }
+.sx-chart { position: relative; flex: 1; min-height: 180px; overflow: hidden; }
+.sx-chart-in { position: absolute; inset: 0; }
+.sx-bt { flex: none; padding: 12px 16px 14px; border-top: 1px solid var(--border); }
+.sx-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; }
+.sx-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sx-stat span { font-size: 12px; color: var(--muted); }
+.sx-stat b { font-size: 15px; font-weight: 600; }
+.sx-stat b.up { color: var(--up); }
+.sx-stat b.down { color: var(--down); }
+
+/* ---------- Scripts menu and help ---------- */
+.sx-pop {
+  position: absolute; top: 48px; z-index: 5;
+  background: var(--dialog, var(--panel)); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .45);
+}
+#sxMenu { width: 380px; max-height: min(620px, calc(100% - 64px)); display: flex; flex-direction: column; overflow: hidden; }
+.sx-find { flex: none; margin: 10px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.sx-find:focus { outline: none; border-color: var(--muted); }
+.sx-menu-b { overflow-y: auto; padding: 0 6px 8px; }
+.sx-menu-h { padding: 10px 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.sx-row { display: flex; align-items: center; gap: 2px; border-radius: 8px; }
+.sx-row.cur { background: var(--accent-soft); }
+.sx-row > button[role="menuitem"] {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; margin: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.sx-row > button[role="menuitem"]:hover, .sx-row > button[role="menuitem"]:focus-visible { background: var(--hover); outline: none; }
+.sx-row-t { flex: 1 !important; min-width: 0; display: flex; flex-direction: column; gap: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sx-row-t small { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+.sx-row .sx-btn.icon { opacity: 0; }
+.sx-row:hover .sx-btn.icon, .sx-row .sx-btn.icon:focus-visible { opacity: 1; }
+.sx-row .sx-btn.icon:hover { color: var(--down); }
+.sx-bad { font-style: normal; font-size: 11.5px; color: var(--down); }
+.sx-none { margin: 0; padding: 6px 10px 8px; color: var(--muted); font-size: 12.5px; }
+
+.sx-help { right: 12px; width: 380px; padding: 14px 16px; font-size: 13px; line-height: 1.55; }
+.sx-help p { margin: 0 0 10px; }
+.sx-help dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 4px 0 12px; }
+.sx-help dt { font-family: var(--sx-mono); font-size: 12px; color: var(--muted); }
+.sx-help dd { margin: 0; }
+.sx-dim { color: var(--muted); font-size: 12px; }
+
+/* A narrow top bar: buttons keep their icons, lose their words. */
+@media (max-width: 1050px) {
+  .sx-bar .sx-btn:not(.primary) span { display: none; }
+  .sx-state { display: none; }
+}

@@ -128,9 +128,9 @@ Every `strategy` setting is optional: `initialCapital`, `positionPct`, `feePct` 
 
 Chart page → Indicators → My scripts → Script editor (or New indicator, New strategy, or "Write in code" in the Strategy tester). It fills the window:
 
-- **Left:** templates to start from, and your saved scripts.
-- **Middle:** the code, with line numbers and highlighting. Tab and Shift+Tab indent, Enter keeps the indent, Ctrl+/ comments lines, Ctrl+Enter runs, Ctrl+S saves, Esc goes back to the chart. Errors show in the console with their line, marked in red.
-- **Right:** a live preview on the active chart's bars: the script's lines, histograms and markers, its inputs to try, and for a strategy its backtest (net profit, drawdown, trades, win rate).
+- **Top bar:** back to the chart, the **Scripts** menu (your saved scripts, and templates to start a new one), the script's name, Run, Save, and Add to chart (or Open in Strategy tester for a strategy). The ? button lists the format and the keys.
+- **Left:** the code, with line numbers and highlighting. Tab and Shift+Tab indent, Enter keeps the indent, Ctrl+/ comments lines, Ctrl+Enter runs, Ctrl+S saves, Esc goes back to the chart. An error shows in a box under the code with its line marked in red and a "Go to line" button; the line under it says what the last run did.
+- **Right:** a live preview on the active chart's bars: the script's inputs to try, its lines, histograms and markers, and for a strategy its backtest. Drag the divider to resize it, or hide it with the panel button. In a narrow window it moves under the code.
 
 Saving checks the file the same way as below; a broken save never replaces a working file.
 

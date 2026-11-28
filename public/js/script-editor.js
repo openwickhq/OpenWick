@@ -1,7 +1,8 @@
 // The script editor: a full-screen workspace for writing your own indicators and strategies in
-// JavaScript. Your scripts on the left; the code in the middle, with line numbers, highlighting and
-// a console; a live preview on the right that runs the script on the active chart's bars as you
-// type: its lines and markers on a chart, its inputs to try, and for a strategy the backtest.
+// JavaScript. The code on the left, with line numbers, highlighting and a status line that points
+// at the line of any error; a live preview on the right that runs the script on the active chart's
+// bars as you type: its lines and markers, its inputs to try, and for a strategy the backtest.
+// Your saved scripts and the templates are in the Scripts menu.
 //
 // Indicators follow docs/custom-indicators.md. A strategy is the same file with a `strategy` block
 // (money and risk settings) whose calc() returns `position` per bar: 1 long, 0 flat, -1 short.
@@ -210,145 +211,204 @@ function highlight(src) {
 }
 
 // ---------- the workspace ----------
+// Layout: a top bar (back, Scripts menu, name, Run / Save / Add to chart), then two panes side by
+// side: the code with a status line under it, and the preview (inputs, chart, backtest). In a
+// narrow window the preview goes under the code. Every pane clips its own content, and the
+// preview chart sits in a box of its own, so nothing can spill over anything else.
 let root = null;
+const ICON = {
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  list: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+  chev: '<path d="M7 10l5 5 5-5"/>',
+  run: '<path d="M8 5.5v13l10.5-6.5z"/>',
+  save: '<path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/>',
+  panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/>',
+  ok: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  err: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/>',
+  x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7M12 17v.01"/>',
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
 
 export async function openScriptEditor(app, { fresh = false, file = null, template = null } = {}) {
   if (root) {
-    root.focusEditor?.();
-    if (template) root.loadTemplate?.(template);
+    root.api.focus();
+    if (template) root.api.loadTemplate(template);
     return;
   }
   const pane = app.active;
   root = document.createElement("div");
-  root.className = "se-root";
+  root.className = "sx";
+  root.setAttribute("role", "dialog");
+  root.setAttribute("aria-modal", "true");
+  root.setAttribute("aria-label", "Script editor");
   root.innerHTML = `
-    <header class="se-top">
-      <button class="se-back" data-a="close" title="Back to the chart (Esc)"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg><span>Chart</span></button>
-      <div class="se-brand"><svg viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14"/></svg>Script editor</div>
-      <div class="se-name"><input id="seName" spellcheck="false" autocomplete="off" title="The file name: custom/<name>.js"><span class="se-kind" id="seKind"></span><span class="se-dirty" id="seDirty" title="Not saved yet"></span></div>
-      <span class="se-sp"></span>
-      <label class="se-live" title="Run the preview a moment after you stop typing"><input type="checkbox" id="seLive" checked> Live preview</label>
-      <button class="se-btn" data-a="run" title="Run the preview (Ctrl+Enter)"><svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>Run<kbd>Ctrl+Enter</kbd></button>
-      <button class="se-btn" data-a="save" title="Save to your custom folder (Ctrl+S)">Save<kbd>Ctrl+S</kbd></button>
-      <button class="se-btn primary" data-a="use" id="seUse">Add to chart</button>
+    <header class="sx-bar">
+      <button class="sx-btn ghost" data-a="close" title="Back to the chart (Esc)">${svg("back")}<span>Chart</span></button>
+      <span class="sx-div" aria-hidden="true"></span>
+      <button class="sx-btn ghost" data-a="menu" id="sxMenuBtn" aria-haspopup="true" aria-expanded="false" title="Your scripts, and new ones from a template">${svg("list")}<span>Scripts</span>${svg("chev")}</button>
+      <div class="sx-title">
+        <input id="sxName" aria-label="Script name (its file name)" spellcheck="false" autocomplete="off">
+        <span class="sx-tag" id="sxKind"></span>
+        <span class="sx-state" id="sxState"></span>
+      </div>
+      <span class="sx-fill"></span>
+      <button class="sx-btn icon" data-a="help" title="How scripts work" aria-label="How scripts work">${svg("help")}</button>
+      <button class="sx-btn icon" data-a="pane" id="sxPaneBtn" title="Show or hide the preview" aria-label="Show or hide the preview" aria-pressed="true">${svg("panel")}</button>
+      <button class="sx-btn" data-a="run" title="Run the preview (Ctrl+Enter)">${svg("run")}<span>Run</span></button>
+      <button class="sx-btn" data-a="save" title="Save to your custom folder (Ctrl+S)">${svg("save")}<span>Save</span></button>
+      <button class="sx-btn primary" data-a="use" id="sxUse"></button>
     </header>
-    <div class="se-body">
-      <aside class="se-side">
-        <div class="se-side-h"><span>New</span></div>
-        <div class="se-tpls">${TEMPLATES.map((t) => `<button data-tpl="${t.id}"><b>${esc(t.title)}</b><small>${esc(t.sub)}</small><em class="${t.kind}">${t.kind === "strategy" ? "Strategy" : "Indicator"}</em></button>`).join("")}</div>
-        <div class="se-side-h"><span>My scripts</span><input id="seFind" placeholder="Find" spellcheck="false"></div>
-        <div class="se-mine" id="seMine"></div>
-        <p class="se-foot">Files live in your <code>custom</code> folder. Format: <code>docs/custom-indicators.md</code>. An AI agent can write them too: "add an OpenWick strategy that…".</p>
-      </aside>
-      <section class="se-code">
-        <div class="se-ed" id="seEd"><div class="se-gutter" id="seGut"></div><div class="se-scroll"><pre class="se-hl" id="seHl" aria-hidden="true"></pre><textarea id="seTa" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea></div></div>
-        <div class="se-split-y" id="seSplitY" title="Drag to resize"></div>
-        <div class="se-console" id="seCon"><div class="se-con-h"><span>Console</span><span class="se-pos" id="sePos"></span></div><div class="se-con-b" id="seConB"></div></div>
+    <main class="sx-main" id="sxMain">
+      <section class="sx-code" aria-label="Code">
+        <div class="sx-ed">
+          <div class="sx-gut" id="sxGut" aria-hidden="true"></div>
+          <div class="sx-area">
+            <pre class="sx-hl" id="sxHl" aria-hidden="true"></pre>
+            <textarea id="sxTa" aria-label="Script code" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+          </div>
+        </div>
+        <div class="sx-err" id="sxErr" hidden role="alert"></div>
+        <footer class="sx-status">
+          <span class="sx-msg" id="sxMsg" role="status" aria-live="polite"></span>
+          <span class="sx-pos" id="sxPos"></span>
+        </footer>
       </section>
-      <div class="se-split-x" id="seSplitX" title="Drag to resize"></div>
-      <section class="se-prev">
-        <div class="se-prev-h"><b>Preview</b><span id="sePrevOn"></span></div>
-        <div class="se-inputs" id="seInputs"></div>
-        <div class="se-chart" id="seChart"></div>
-        <div class="se-result" id="seResult"></div>
+      <div class="sx-split" id="sxSplit" role="separator" aria-orientation="vertical" aria-label="Resize the preview" tabindex="0"></div>
+      <section class="sx-prev" id="sxPrev" aria-label="Preview">
+        <div class="sx-prev-h"><b>Preview</b><span id="sxOn"></span></div>
+        <form class="sx-inputs" id="sxInputs" hidden></form>
+        <div class="sx-chart"><div class="sx-chart-in" id="sxChart"></div></div>
+        <div class="sx-bt" id="sxBt" hidden></div>
       </section>
-    </div>`;
+    </main>
+    <div class="sx-pop" id="sxMenu" hidden role="menu" aria-label="Scripts"></div>
+    <div class="sx-pop sx-help" id="sxHelp" hidden></div>`;
   document.body.appendChild(root);
-  document.body.classList.add("se-open");
+  document.body.classList.add("sx-open");
   const $ = (s) => root.querySelector(s);
-  const ta = $("#seTa"), hl = $("#seHl"), gut = $("#seGut");
+  const ta = $("#sxTa"), hl = $("#sxHl"), gut = $("#sxGut");
 
   // ----- state -----
-  let curFile = null, savedCode = "", def = null, params = {}, runTimer = null, previewId = null, errLine = null;
+  let curFile = null, savedCode = "", def = null, params = {}, runTimer = null, previewId = null, errLine = null, files = [];
+  const changed = () => ta.value !== savedCode;
   const isStrategy = () => /\bstrategy\s*:\s*\{/.test(ta.value);
-  const setDirty = () => {
-    // The dot: changed since it was opened or saved, or a new script that has never been saved.
-    $("#seDirty").classList.toggle("on", ta.value !== savedCode || !curFile);
-    $("#seDirty").title = curFile ? "Changed since it was saved" : "New: not saved yet";
+  const syncTitle = () => {
+    const nm = $("#sxName");
+    // Measure the name in the field's own font, so the field fits it exactly.
+    const cx = (syncTitle.cx ||= document.createElement("canvas").getContext("2d"));
+    const fs = getComputedStyle(nm);
+    cx.font = `${fs.fontWeight} ${fs.fontSize} ${fs.fontFamily}`;
+    nm.style.width = `${Math.ceil(Math.max(cx.measureText(nm.value || "my script").width, 60)) + 24}px`;
     const strat = isStrategy();
-    $("#seKind").textContent = strat ? "Strategy" : "Indicator";
-    $("#seKind").className = `se-kind ${strat ? "strategy" : "indicator"}`;
-    $("#seUse").textContent = strat ? "Open in Strategy tester" : "Add to chart";
+    $("#sxKind").textContent = strat ? "Strategy" : "Indicator";
+    $("#sxKind").className = `sx-tag ${strat ? "strategy" : ""}`;
+    $("#sxUse").textContent = strat ? "Open in Strategy tester" : "Add to chart";
+    const st = $("#sxState");
+    st.textContent = !curFile ? "Not saved yet" : changed() ? "Edited" : "Saved";
+    st.className = `sx-state ${!curFile || changed() ? "warn" : ""}`;
   };
+
+  // ----- status and errors -----
+  const status = (text, kind = "") => {
+    $("#sxMsg").innerHTML = `${kind ? svg(kind === "ok" ? "ok" : "err") : ""}<span>${text}</span>`;
+    $("#sxMsg").className = `sx-msg ${kind}`;
+  };
+  const showError = (msg, line) => {
+    errLine = line || null;
+    const box = $("#sxErr");
+    box.hidden = false;
+    box.innerHTML = `<div class="sx-err-h">${svg("err")}<b>${line ? `Problem on line ${line}` : "Problem"}</b><span class="sx-fill"></span>${line ? `<button class="sx-btn small" data-a="goto">Go to line ${line}</button>` : ""}<button class="sx-btn icon small" data-a="errx" aria-label="Hide this message">${svg("x")}</button></div><pre>${esc(msg)}</pre>`;
+    status(line ? `Error on line ${line}` : "Error: see above", "err");
+    paint();
+  };
+  const clearError = () => {
+    errLine = null;
+    $("#sxErr").hidden = true;
+  };
+  const lineOf = (err) => Number(/blob:[^\s)]*?:(\d+):\d+/.exec(err?.stack || "")?.[1]) || null;
 
   // ----- editor -----
   const paint = () => {
     hl.innerHTML = highlight(ta.value);
     const n = ta.value.split("\n").length;
     if (gut.childElementCount !== n) gut.innerHTML = Array.from({ length: n }, (_, i) => `<div>${i + 1}</div>`).join("");
-    gut.querySelector(".err")?.classList.remove("err");
-    if (errLine) gut.children[errLine - 1]?.classList.add("err");
-    syncScroll();
+    gut.querySelector(".bad")?.classList.remove("bad");
+    if (errLine) gut.children[errLine - 1]?.classList.add("bad");
+    sync();
   };
-  const syncScroll = () => {
+  const sync = () => {
     hl.style.transform = `translate(${-ta.scrollLeft}px, ${-ta.scrollTop}px)`;
     gut.style.transform = `translateY(${-ta.scrollTop}px)`;
   };
   const caret = () => {
-    const before = ta.value.slice(0, ta.selectionStart).split("\n");
-    $("#sePos").textContent = `Line ${before.length}, column ${before.at(-1).length + 1}`;
+    const lines = ta.value.slice(0, ta.selectionStart).split("\n");
+    $("#sxPos").textContent = `Line ${lines.length}, column ${lines.at(-1).length + 1}`;
   };
-  // Edits go through insertText so Ctrl+Z still undoes them.
+  const gotoLine = (n) => {
+    const lines = ta.value.split("\n");
+    const at = lines.slice(0, n - 1).reduce((a, l) => a + l.length + 1, 0);
+    ta.focus();
+    ta.setSelectionRange(at, at + (lines[n - 1]?.length || 0));
+    ta.scrollTop = Math.max(0, (n - 6) * 20);
+    caret();
+  };
+  // Edits go through insertText so Ctrl+Z undoes them.
   const insert = (text) => document.execCommand("insertText", false, text);
   const lineStart = (pos) => ta.value.lastIndexOf("\n", pos - 1) + 1;
-  const setCode = (code, { saved = false } = {}) => {
+  const setCode = (code) => {
     ta.value = code;
-    if (saved) savedCode = code;
-    errLine = null;
+    savedCode = code;
+    clearError();
     paint();
-    setDirty();
+    syncTitle();
     ta.scrollTop = 0;
     ta.setSelectionRange(0, 0);
+    caret();
   };
   ta.addEventListener("input", () => {
-    errLine = null;
+    if (errLine) clearError();
     paint();
-    setDirty();
+    syncTitle();
     caret();
-    if ($("#seLive").checked) {
-      clearTimeout(runTimer);
-      runTimer = setTimeout(() => run({ quiet: true }), 700);
-    }
+    clearTimeout(runTimer);
+    runTimer = setTimeout(() => run(), 700);
   });
-  ta.addEventListener("scroll", syncScroll);
+  ta.addEventListener("scroll", sync);
   for (const ev of ["click", "keyup", "select"]) ta.addEventListener(ev, caret);
   ta.addEventListener("keydown", (e) => {
     const v = ta.value, a = ta.selectionStart, b = ta.selectionEnd;
-    // Tab / Shift+Tab: indent or outdent the selected lines (or insert two spaces).
     if (e.key === "Tab") {
       e.preventDefault();
-      const from = lineStart(a), block = v.slice(from, b);
       if (a === b && !e.shiftKey) return insert("  ");
-      const lines = block.split("\n");
-      const next = lines.map((l) => (e.shiftKey ? l.replace(/^ {1,2}/, "") : `  ${l}`)).join("\n");
+      const from = lineStart(a);
+      const next = v.slice(from, b).split("\n").map((l) => (e.shiftKey ? l.replace(/^ {1,2}/, "") : `  ${l}`)).join("\n");
       ta.setSelectionRange(from, b);
       insert(next);
       ta.setSelectionRange(from, from + next.length);
       return;
     }
-    // Enter keeps the line's indent, one step more after an opening bracket.
     if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
       e.preventDefault();
       const line = v.slice(lineStart(a), a);
       const indent = /^\s*/.exec(line)[0];
-      const opens = /[{[(]\s*$/.test(line), closes = /^\s*[}\])]/.test(v.slice(a, v.indexOf("\n", a) < 0 ? v.length : v.indexOf("\n", a)));
-      if (opens && closes) {
+      const opens = /[{[(]\s*$/.test(line);
+      const rest = v.slice(a, v.indexOf("\n", a) < 0 ? v.length : v.indexOf("\n", a));
+      if (opens && /^\s*[}\])]/.test(rest)) {
         insert(`\n${indent}  \n${indent}`);
         ta.setSelectionRange(a + indent.length + 3, a + indent.length + 3);
       } else insert(`\n${indent}${opens ? "  " : ""}`);
       return;
     }
-    // A closing bracket typed on an empty indented line steps back.
     if (/^[}\])]$/.test(e.key) && a === b) {
       const ls = lineStart(a);
       if (/^\s+$/.test(v.slice(ls, a)) && a - ls >= 2) {
         e.preventDefault();
         ta.setSelectionRange(a - 2, a);
         insert(e.key);
-        return;
       }
+      return;
     }
-    // Ctrl+/ comments or uncomments the selected lines.
     if ((e.ctrlKey || e.metaKey) && e.key === "/") {
       e.preventDefault();
       const from = lineStart(a), to = v.indexOf("\n", b) < 0 ? v.length : v.indexOf("\n", b);
@@ -361,25 +421,11 @@ export async function openScriptEditor(app, { fresh = false, file = null, templa
     }
   });
 
-  // ----- console -----
-  const log = (html, kind = "") => {
-    const box = $("#seConB");
-    const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    box.insertAdjacentHTML("beforeend", `<div class="se-log ${kind}"><span class="t">${t}</span><span class="m">${html}</span></div>`);
-    while (box.childElementCount > 60) box.firstElementChild.remove();
-    box.scrollTop = box.scrollHeight;
-  };
-  // The line a runtime error came from, read from the stack of the script's module.
-  const lineOf = (err) => {
-    const m = /blob:[^\s)]*?:(\d+):(\d+)/.exec(err?.stack || "");
-    return m ? Number(m[1]) : null;
-  };
-
-  // ----- preview chart -----
-  let chart = null, candles = null, extra = [], markersApi = null;
+  // ----- preview -----
+  let chart = null, candles = null, extra = [], marks = null, fitted = false;
   const makeChart = () => {
     chart?.remove();
-    chart = LW.createChart($("#seChart"), {
+    chart = LW.createChart($("#sxChart"), {
       autoSize: true,
       layout: { background: { type: "solid", color: css("--chart-bg") }, textColor: css("--chart-text"), fontSize: 11, attributionLogo: false, panes: { separatorColor: css("--chart-border") } },
       grid: { vertLines: { color: css("--chart-grid") }, horzLines: { color: css("--chart-grid") } },
@@ -389,113 +435,105 @@ export async function openScriptEditor(app, { fresh = false, file = null, templa
     });
     const up = css("--up") || "#18a57b", down = css("--down") || "#ef4f5e";
     candles = chart.addSeries(LW.CandlestickSeries, { upColor: up, downColor: down, wickUpColor: up, wickDownColor: down, borderVisible: false, priceLineVisible: false });
-    markersApi = LW.createSeriesMarkers(candles, []);
+    marks = LW.createSeriesMarkers(candles, []);
     extra = [];
   };
   const T = (t) => (pane?.toChart ? pane.toChart(t) : t);
   const barsNow = () => (pane?.bars || []).filter((b) => Number.isFinite(b.close));
 
-  function drawPreview(bars, res, d, trades) {
-    if (!chart) makeChart();
+  function drawChart(bars, res, d, trades) {
     for (const s of extra) chart.removeSeries(s);
     extra = [];
-    // Remove the panes a previous run added.
     while (chart.panes().length > 1) chart.removePane(chart.panes().length - 1);
-    const colors = res.barColors;
-    candles.setData(bars.map((b, i) => ({ time: T(b.time), open: b.open, high: b.high, low: b.low, close: b.close, ...(colors?.[i] ? { color: colors[i], wickColor: colors[i] } : {}) })));
-    const paneIx = d.overlay === false ? 1 : 0;
+    const bc = res.barColors;
+    candles.setData(bars.map((b, i) => ({ time: T(b.time), open: b.open, high: b.high, low: b.low, close: b.close, ...(bc?.[i] ? { color: bc[i], wickColor: bc[i] } : {}) })));
+    const own = d.overlay === false ? 1 : 0;
     let first = null;
     for (const o of d.outputs) {
       const arr = res[o.key];
       if (!Array.isArray(arr)) continue;
       const hist = o.kind === "histogram";
-      const s = chart.addSeries(hist ? LW.HistogramSeries : LW.LineSeries, {
-        color: o.color || "#e5a43a",
-        ...(hist ? {} : { lineWidth: o.lineWidth || 1.5 }),
-        priceLineVisible: false,
-        lastValueVisible: paneIx === 1,
-        title: o.label || o.key,
-      }, paneIx);
+      const s = chart.addSeries(hist ? LW.HistogramSeries : LW.LineSeries, { color: o.color || "#e5a43a", ...(hist ? {} : { lineWidth: o.lineWidth || 1.5 }), priceLineVisible: false, lastValueVisible: own === 1, title: o.label || o.key }, own);
       s.setData(bars.map((b, i) => (Number.isFinite(arr[i]) ? { time: T(b.time), value: arr[i], ...(hist && res.colors?.[i] ? { color: res.colors[i] } : {}) } : { time: T(b.time) })));
       first ||= s;
       extra.push(s);
     }
-    if (first && paneIx === 1) for (const lv of d.levels || []) first.createPriceLine({ price: lv, color: css("--muted"), lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-    if (paneIx === 1 && chart.panes()[1]) chart.panes()[1].setHeight(Math.round($("#seChart").clientHeight * 0.32));
+    if (first && own) for (const lv of d.levels || []) first.createPriceLine({ price: lv, color: css("--muted"), lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    if (own && chart.panes()[1]) chart.panes()[1].setHeight(Math.round($("#sxChart").clientHeight * 0.3));
     const ms = (Array.isArray(res.markers) ? res.markers : []).map((m) => ({ ...m, time: T(m.time) }));
     for (const t of trades || []) {
       ms.push({ time: T(t.entryTime), position: t.side === "long" ? "belowBar" : "aboveBar", shape: t.side === "long" ? "arrowUp" : "arrowDown", color: t.side === "long" ? "#18a57b" : "#e5a43a", text: t.side === "long" ? "Buy" : "Short" });
       ms.push({ time: T(t.exitTime), position: t.side === "long" ? "aboveBar" : "belowBar", shape: "circle", color: t.pnl >= 0 ? "#18a57b" : "#ef4f5e", text: `${t.pnlPct >= 0 ? "+" : ""}${t.pnlPct.toFixed(1)}%` });
     }
-    markersApi.setMarkers(ms.sort((a, b) => a.time - b.time));
-    if (!drawPreview.fitted) {
-      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 180), to: bars.length + 4 });
-      drawPreview.fitted = true;
+    marks.setMarkers(ms.sort((a, b) => a.time - b.time));
+    if (!fitted) {
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, bars.length - 160), to: bars.length + 4 });
+      fitted = true;
     }
   }
 
-  // The script's inputs, to try values in the preview (saved defaults stay as written in the code).
+  // The script's inputs, to try other values here (the defaults in the code don't change).
   function drawInputs(d) {
-    const box = $("#seInputs");
+    const box = $("#sxInputs");
     const ins = (d.inputs || []).filter((i) => i.type !== "time");
-    box.innerHTML = ins.map((i) => {
-      const v = params[i.key] ?? i.default;
-      const field = i.type === "select"
-        ? `<select data-k="${esc(i.key)}">${i.options.map((o) => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
-        : i.type === "source"
-          ? `<select data-k="${esc(i.key)}">${["close", "open", "high", "low", "hl2", "hlc3", "ohlc4", "volume"].map((o) => `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`
-          : i.type === "bool"
-            ? `<input type="checkbox" data-k="${esc(i.key)}" ${v ? "checked" : ""}>`
-            : `<input type="number" data-k="${esc(i.key)}" value="${esc(v)}" step="${i.type === "int" ? 1 : "any"}">`;
-      return `<label>${esc(i.label || i.key)}${field}</label>`;
-    }).join("") + (ins.length ? '<button class="se-reset" title="Back to the defaults in the code">Defaults</button>' : "");
     box.hidden = !ins.length;
+    if (!ins.length) return (box.innerHTML = "");
+    const opt = (list, v) => list.map((o) => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("");
+    box.innerHTML = `<div class="sx-sub"><b>Inputs</b><span>Try values here; the defaults stay as written in the code.</span><button type="button" class="sx-link" data-a="defaults">Reset</button></div><div class="sx-fields">${ins.map((i, n) => {
+      const v = params[i.key] ?? i.default, id = `sxIn${n}`;
+      const field = i.type === "select" ? `<select id="${id}" data-k="${esc(i.key)}">${opt(i.options, v)}</select>`
+        : i.type === "source" ? `<select id="${id}" data-k="${esc(i.key)}">${opt(["close", "open", "high", "low", "hl2", "hlc3", "ohlc4", "volume"], v)}</select>`
+          : i.type === "bool" ? `<input id="${id}" type="checkbox" data-k="${esc(i.key)}" ${v ? "checked" : ""}>`
+            : `<input id="${id}" type="number" data-k="${esc(i.key)}" value="${esc(v)}" step="${i.type === "int" ? 1 : "any"}">`;
+      return `<div class="sx-field"><label for="${id}">${esc(i.label || i.key)}</label>${field}</div>`;
+    }).join("")}</div>`;
     box.onchange = (e) => {
       const el = e.target.closest("[data-k]");
       if (!el) return;
       const inp = ins.find((x) => x.key === el.dataset.k);
-      params[el.dataset.k] = el.type === "checkbox" ? el.checked : inp.type === "int" ? Math.round(Number(el.value)) : inp.type === "float" ? Number(el.value) : el.value;
-      run({ quiet: true });
+      params[inp.key] = el.type === "checkbox" ? el.checked : inp.type === "int" ? Math.round(Number(el.value)) : inp.type === "float" ? Number(el.value) : el.value;
+      run();
     };
-    const rb = box.querySelector(".se-reset");
-    if (rb) rb.onclick = () => { params = {}; run({ quiet: true }); };
+    box.onsubmit = (e) => e.preventDefault();
   }
 
-  function drawResult(r, d) {
-    const box = $("#seResult");
-    if (!r) { box.innerHTML = ""; box.hidden = true; return; }
+  function drawBacktest(r) {
+    const box = $("#sxBt");
+    box.hidden = !r;
+    if (!r) return (box.innerHTML = "");
     const s = r.stats, pc = (v) => (v == null ? "—" : `${v >= 0 ? "+" : ""}${v}%`);
-    const stat = (k, v, c = "") => `<div><span>${k}</span><b class="${c}">${v ?? "—"}</b></div>`;
-    box.hidden = false;
-    box.innerHTML = `<div class="se-stats">${stat("Net profit", pc(s.netProfitPct), s.netProfitPct >= 0 ? "up" : "down")}${stat("Buy and hold", pc(s.buyHoldPct))}${stat("Max drawdown", s.maxDrawdownPct == null ? "—" : `-${s.maxDrawdownPct}%`, "down")}${stat("Trades", s.totalTrades)}${stat("Win rate", s.winRatePct == null ? "—" : `${s.winRatePct}%`)}${stat("Profit factor", s.profitFactor)}${stat("Sharpe", s.sharpe)}</div><div class="se-note">${esc(s.feesAndSlippage || "")}. Full report with the equity curve and quant checks: <b>Open in Strategy tester</b>.</div>`;
+    const cell = (k, v, c = "") => `<div class="sx-stat"><span>${k}</span><b class="${c}">${v ?? "—"}</b></div>`;
+    box.innerHTML = `<div class="sx-sub"><b>Backtest</b><span>${esc(s.feesAndSlippage || "")}</span><button type="button" class="sx-link" data-a="use">Full report</button></div><div class="sx-stats">${cell("Net profit", pc(s.netProfitPct), s.netProfitPct >= 0 ? "up" : "down")}${cell("Buy and hold", pc(s.buyHoldPct))}${cell("Max drawdown", s.maxDrawdownPct == null ? "—" : `−${s.maxDrawdownPct}%`)}${cell("Trades", s.totalTrades)}${cell("Win rate", s.winRatePct == null ? "—" : `${s.winRatePct}%`)}${cell("Profit factor", s.profitFactor)}</div>`;
   }
 
   // ----- run -----
   let runNo = 0;
-  async function run({ quiet = false } = {}) {
+  async function run() {
     clearTimeout(runTimer);
     const my = ++runNo;
     let code = ta.value;
     if (!/export\s+default/.test(code) && /module\.exports\s*=/.test(code)) code = code.replace(/module\.exports\s*=/, "export default");
     if (!/export\s+default/.test(code)) {
-      if (/\/\/\s*@version|^\s*(indicator|study|strategy)\s*\(/m.test(code)) return log("This looks like Pine Script. OpenWick scripts are JavaScript: ask an AI agent to “turn this Pine Script into an OpenWick custom indicator” and paste the result here.", "err");
-      return log("The script needs <code>export default { name, calc(bars, p, ta) { … } }</code>. Start from one of the templates on the left.", "err");
+      return showError(/\/\/\s*@version|^\s*(indicator|study|strategy)\s*\(/m.test(code)
+        ? "This looks like Pine Script. OpenWick scripts are JavaScript: ask an AI agent to \"turn this Pine Script into an OpenWick custom indicator\" and paste the result here."
+        : "The script needs `export default { name, calc(bars, p, ta) { … } }`. Start from a template in the Scripts menu.");
     }
     const bars = barsNow();
-    if (!bars.length) return log("The active chart has no bars yet, so there's nothing to run on.", "err");
+    if (!bars.length) return status("The chart behind this has no bars yet, so there's nothing to run on.", "err");
+    status("Running…");
     const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }));
     const t0 = performance.now();
     try {
       const mod = await import(url);
       if (my !== runNo) return;
-      if (!mod.default || typeof mod.default !== "object") throw new Error("export default must be an object: { name, calc(bars, p, ta) { … } }");
-      // Run it ourselves first, so an error points at its line in the script; then the format check.
       const raw = mod.default;
+      if (!raw || typeof raw !== "object") throw new Error("export default must be an object: { name, calc(bars, p, ta) { … } }");
+      if (typeof raw.calc !== "function") throw new Error("The script needs a calc(bars, p, ta) function.");
+      // Run it ourselves first, so an error points at its line; then the format check.
       const ins = Array.isArray(raw.inputs) ? raw.inputs : [];
       const known = new Set(ins.map((i) => i?.key));
       params = Object.fromEntries(Object.entries(params).filter(([k]) => known.has(k)));
       const p = { ...Object.fromEntries(ins.map((i) => [i?.key, i?.default])), ...params };
-      if (typeof raw.calc !== "function") throw new Error("The script needs a calc(bars, p, ta) function.");
       const res = raw.calc(bars, p, TA);
       if (!res || typeof res !== "object") throw new Error("calc() must return an object with one array per output, like { value }.");
       if (previewId) forgetPreview(previewId);
@@ -507,85 +545,118 @@ export async function openScriptEditor(app, { fresh = false, file = null, templa
         const settings = Object.fromEntries(Object.entries(def.strategy).filter(([k]) => STRATEGY_KEYS.includes(k)));
         result = backtest(bars, { ...settings, ...signalRules(previewId, p) });
       }
-      const ms = Math.round(performance.now() - t0);
-      errLine = null;
+      clearError();
       paint();
       drawInputs(def);
-      drawPreview(bars, res, def, result?.trades);
-      drawResult(result, def);
-      const outs = def.outputs.map((o) => o.key).join(", ");
+      drawChart(bars, res, def, result?.trades);
+      drawBacktest(result);
+      const ms = Math.round(performance.now() - t0);
       const nm = Array.isArray(res.markers) ? res.markers.length : 0;
-      if (!quiet || $("#seConB").lastElementChild?.classList.contains("err"))
-        log(`Ran on ${esc(ticker(pane.cfg.symbol))} ${esc(pane.cfg.tf)}: ${bars.length.toLocaleString()} bars in ${ms} ms. Outputs: ${esc(outs)}${nm ? `. ${nm} markers` : ""}${result ? `. ${result.stats.totalTrades} trades, ${result.stats.netProfitPct >= 0 ? "+" : ""}${result.stats.netProfitPct}%` : ""}.`, "ok");
+      status(`Ran on ${esc(ticker(pane.cfg.symbol))} ${esc(pane.cfg.tf)} · ${bars.length.toLocaleString()} bars · ${ms} ms · ${def.outputs.length} output${def.outputs.length === 1 ? "" : "s"}${nm ? ` · ${nm} markers` : ""}${result ? ` · ${result.stats.totalTrades} trades` : ""}`, "ok");
     } catch (e) {
       if (my !== runNo) return;
-      errLine = lineOf(e);
-      paint();
-      log(`${errLine ? `<b>Line ${errLine}:</b> ` : ""}${esc(e.message).replace(/\n/g, "<br>")}`, "err");
+      showError(e.message, lineOf(e));
     } finally {
       URL.revokeObjectURL(url);
     }
   }
 
-  // ----- files -----
-  async function refreshList() {
-    let list = [];
-    try { list = await api.get("/api/custom"); } catch { /* none yet */ }
-    const q = $("#seFind").value.trim().toLowerCase();
-    const rows = list.filter((c) => !q || c.file.toLowerCase().includes(q)).sort((a, b) => b.mtime - a.mtime);
-    $("#seMine").innerHTML = rows.map((c) => {
-      const strat = !!BY_ID[c.id]?.strategy;
-      return `<div class="se-file ${c.file === curFile ? "cur" : ""}" data-file="${esc(c.file)}"><button class="se-open" title="Open"><span>${esc(c.file.replace(/\.js$/, ""))}</span><em class="${strat ? "strategy" : "indicator"}">${strat ? "Strategy" : "Indicator"}</em>${c.error ? '<i class="se-bad" title="This file has a problem: open it to see it">!</i>' : ""}</button><button class="se-del" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`;
-    }).join("") || `<p class="se-empty">${q ? "No match." : "Nothing saved yet. Start from a template above."}</p>`;
-    return list;
+  // ----- the Scripts menu: your scripts, then templates -----
+  const menu = $("#sxMenu"), menuBtn = $("#sxMenuBtn");
+  async function loadFiles() {
+    try { files = await api.get("/api/custom"); } catch { files = []; }
+    return files;
   }
-  const leaveOk = async () => ta.value === savedCode || (await ask("Your changes to this script aren't saved. Discard them?", { ok: "Discard", danger: true }));
-  async function openFile(f, list) {
+  function drawMenu(q = "") {
+    const f = q.trim().toLowerCase();
+    const mine = files.filter((c) => !f || c.file.toLowerCase().includes(f)).sort((a, b) => b.mtime - a.mtime);
+    const tpls = TEMPLATES.filter((t) => !f || `${t.title} ${t.sub}`.toLowerCase().includes(f));
+    const kind = (strat) => `<span class="sx-tag ${strat ? "strategy" : ""}">${strat ? "Strategy" : "Indicator"}</span>`;
+    menu.querySelector(".sx-menu-b").innerHTML =
+      `<div class="sx-menu-h">My scripts</div>${mine.map((c) => `<div class="sx-row ${c.file === curFile ? "cur" : ""}"><button role="menuitem" data-open="${esc(c.file)}"><span class="sx-row-t">${esc(c.file.replace(/\.js$/, ""))}${c.error ? ' <em class="sx-bad">has a problem</em>' : ""}</span>${kind(!!BY_ID[c.id]?.strategy)}</button><button class="sx-btn icon small" data-del="${esc(c.file)}" aria-label="Delete ${esc(c.file)}" title="Delete">${svg("x")}</button></div>`).join("") || `<p class="sx-none">${f ? "No match." : "None saved yet."}</p>`}` +
+      `<div class="sx-menu-h">Start new</div>${tpls.map((t) => `<div class="sx-row"><button role="menuitem" data-tpl="${t.id}"><span class="sx-row-t">${esc(t.title)}<small>${esc(t.sub)}</small></span>${kind(t.kind === "strategy")}</button></div>`).join("")}`;
+  }
+  async function openMenu() {
+    hideHelp();
+    menu.innerHTML = `<input class="sx-find" placeholder="Find a script or template" aria-label="Find a script or template" spellcheck="false"><div class="sx-menu-b"></div>`;
+    await loadFiles();
+    drawMenu();
+    menu.style.left = `${Math.max(8, menuBtn.getBoundingClientRect().left)}px`;
+    menu.hidden = false;
+    menuBtn.setAttribute("aria-expanded", "true");
+    const find = menu.querySelector(".sx-find");
+    find.oninput = () => drawMenu(find.value);
+    find.focus();
+  }
+  const hideMenu = () => {
+    menu.hidden = true;
+    menuBtn.setAttribute("aria-expanded", "false");
+  };
+  menu.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...menu.querySelectorAll(".sx-find, [role=menuitem]")];
+    const i = items.indexOf(document.activeElement);
+    items[(i + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length]?.focus();
+  });
+
+  // ----- help -----
+  const help = $("#sxHelp");
+  const hideHelp = () => (help.hidden = true);
+  help.innerHTML = `<div class="sx-sub"><b>How scripts work</b><span class="sx-fill"></span><button type="button" class="sx-btn icon small" data-a="helpx" aria-label="Close">${svg("x")}</button></div>
+    <p>A script is one JavaScript file: <code>export default { name, inputs, outputs, calc(bars, p, ta) }</code>. <code>calc</code> returns one array per output, as long as <code>bars</code>.</p>
+    <p><b>Strategy:</b> add a <code>strategy: { … }</code> block and return <code>position</code> per bar: 1 long, 0 flat, −1 short.</p>
+    <p><b>ta</b> has sma, ema, rma, wma, hma, rsi, atr, stdev, highest, lowest, crossover, crossunder, source and more, plus <code>compute(id, bars, params)</code> for any built-in indicator.</p>
+    <dl><dt>Ctrl+Enter</dt><dd>Run</dd><dt>Ctrl+S</dt><dd>Save</dd><dt>Tab / Shift+Tab</dt><dd>Indent</dd><dt>Ctrl+/</dt><dd>Comment lines</dd><dt>Esc</dt><dd>Back to the chart</dd></dl>
+    <p class="sx-dim">Full format: <code>docs/custom-indicators.md</code>. Files are saved in your <code>custom</code> folder.</p>`;
+
+  // ----- files -----
+  const leaveOk = async () => !changed() || (await ask("Your changes to this script aren't saved. Discard them?", { ok: "Discard", danger: true }));
+  async function openFile(f) {
     if (!(await leaveOk())) return;
     const code = await (await fetch(`/custom/${encodeURIComponent(f)}?v=${Date.now()}`)).text();
     curFile = f;
-    $("#seName").value = f.replace(/\.js$/, "");
+    $("#sxName").value = f.replace(/\.js$/, "");
     params = {};
-    drawPreview.fitted = false;
-    setCode(code, { saved: true });
-    refreshList();
-    const bad = (list || []).find((c) => c.file === f)?.error;
-    if (bad) log(esc(bad).replace(/\n/g, "<br>"), "err");
-    run();
+    fitted = false;
+    setCode(code);
+    const bad = files.find((c) => c.file === f)?.error;
+    if (bad) showError(bad);
+    else run();
   }
   async function loadTemplate(id) {
     const t = TEMPLATES.find((x) => x.id === id);
     if (!t || !(await leaveOk())) return;
     curFile = null;
-    $("#seName").value = /name:\s*"([^"]+)"/.exec(t.code)?.[1] || "my script";
+    $("#sxName").value = /name:\s*"([^"]+)"/.exec(t.code)?.[1] || "my script";
     params = {};
-    drawPreview.fitted = false;
-    setCode(t.code, { saved: true });
-    refreshList();
-    log(`New ${t.kind} from “${esc(t.title)}”. Change it, then Save (Ctrl+S).`);
-    run({ quiet: true });
+    fitted = false;
+    setCode(t.code);
+    syncTitle();
+    run();
   }
   async function save() {
-    const name = $("#seName").value.trim() || /name:\s*["'`]([^"'`]+)/.exec(ta.value)?.[1] || "my script";
+    const name = $("#sxName").value.trim() || /name:\s*["'`]([^"'`]+)/.exec(ta.value)?.[1] || "my script";
+    status("Saving…");
     try {
       const r = await api.post("/api/custom", { name, code: ta.value });
       const loaded = await app.importCustom(r.file);
-      if (!loaded) throw new Error("Saved, but the chart couldn't load it. Check the console above.");
+      if (!loaded) throw new Error("Saved, but the chart couldn't load it.");
       curFile = r.file;
-      $("#seName").value = r.file.replace(/\.js$/, "");
+      $("#sxName").value = r.file.replace(/\.js$/, "");
       savedCode = ta.value;
-      setDirty();
+      syncTitle();
       app.panes.forEach((p) => p.render(false));
-      log(`Saved <code>custom/${esc(r.file)}</code>.`, "ok");
-      refreshList();
+      status(`Saved as custom/${esc(r.file)}`, "ok");
+      loadFiles();
       return loaded;
     } catch (e) {
-      log(esc(e.message).replace(/\n/g, "<br>"), "err");
+      showError(e.message);
       return null;
     }
   }
   async function use() {
-    const loaded = ta.value === savedCode && curFile ? BY_ID[`custom:${curFile.replace(/\.js$/, "")}`] : await save();
+    const loaded = !changed() && curFile ? BY_ID[`custom:${curFile.replace(/\.js$/, "")}`] : await save();
     if (!loaded) return;
     await close(true);
     if (loaded.strategy) {
@@ -600,76 +671,106 @@ export async function openScriptEditor(app, { fresh = false, file = null, templa
     if (!force && !(await leaveOk())) return;
     clearTimeout(runTimer);
     if (previewId) forgetPreview(previewId);
+    ro.disconnect();
     chart?.remove();
     root.remove();
     root = null;
-    document.body.classList.remove("se-open");
+    document.body.classList.remove("sx-open");
     window.removeEventListener("beforeunload", beforeUnload);
+    app.active?.el?.focus?.();
   }
   const beforeUnload = (e) => {
-    if (ta.value !== savedCode) e.preventDefault();
+    if (changed()) e.preventDefault();
   };
   window.addEventListener("beforeunload", beforeUnload);
 
+  // ----- layout: the divider, hiding the preview, narrow windows -----
+  const main = $("#sxMain");
+  const setPrev = (w) => {
+    const max = main.clientWidth - 380;
+    const v = Math.round(Math.min(Math.max(320, w), Math.max(320, max)));
+    main.style.setProperty("--sx-prev", `${v}px`);
+    localStorage.setItem("ow.sxPrev", String(v));
+  };
+  const savedW = Number(localStorage.getItem("ow.sxPrev"));
+  if (savedW) main.style.setProperty("--sx-prev", `${savedW}px`);
+  const split = $("#sxSplit");
+  split.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    split.setPointerCapture(e.pointerId);
+    const mv = (ev) => setPrev(main.getBoundingClientRect().right - ev.clientX);
+    const up = () => { split.removeEventListener("pointermove", mv); split.removeEventListener("pointerup", up); };
+    split.addEventListener("pointermove", mv);
+    split.addEventListener("pointerup", up);
+  });
+  split.addEventListener("keydown", (e) => {
+    const step = e.shiftKey ? 80 : 24;
+    if (e.key === "ArrowLeft") setPrev($("#sxPrev").clientWidth + step);
+    if (e.key === "ArrowRight") setPrev($("#sxPrev").clientWidth - step);
+  });
+  const setPaneShown = (on) => {
+    main.classList.toggle("no-prev", !on);
+    $("#sxPaneBtn").setAttribute("aria-pressed", String(on));
+    localStorage.setItem("ow.sxPrevOff", on ? "" : "1");
+  };
+  setPaneShown(!localStorage.getItem("ow.sxPrevOff"));
+  // Narrow window: the preview goes under the code.
+  const ro = new ResizeObserver(() => main.classList.toggle("stack", main.clientWidth < 900));
+  ro.observe(main);
+
   // ----- wiring -----
   root.addEventListener("click", async (e) => {
-    const a = e.target.closest("[data-a]")?.dataset.a;
+    const t = e.target;
+    if (!menu.hidden && !menu.contains(t) && !menuBtn.contains(t)) hideMenu();
+    if (!help.hidden && !help.contains(t) && !t.closest('[data-a="help"]')) hideHelp();
+    const a = t.closest("[data-a]")?.dataset.a;
     if (a === "close") return close();
+    if (a === "menu") return menu.hidden ? openMenu() : hideMenu();
+    if (a === "help") { hideMenu(); return (help.hidden = !help.hidden); }
+    if (a === "helpx") return hideHelp();
+    if (a === "pane") return setPaneShown(main.classList.contains("no-prev"));
     if (a === "run") return run();
     if (a === "save") return save();
     if (a === "use") return use();
-    const tpl = e.target.closest("[data-tpl]")?.dataset.tpl;
-    if (tpl) return loadTemplate(tpl);
-    const row = e.target.closest("[data-file]");
-    if (!row) return;
-    const f = row.dataset.file;
-    if (e.target.closest(".se-del")) {
-      if (!(await ask(`Delete ${f}? It's removed from your custom folder and from any chart using it.`, { ok: "Delete", danger: true }))) return;
-      await api.del(`/api/custom/${encodeURIComponent(f)}`);
-      if (f === curFile) { curFile = null; savedCode = ""; setDirty(); }
-      log(`Deleted ${esc(f)}.`);
-      return refreshList();
+    if (a === "goto" && errLine) return gotoLine(errLine);
+    if (a === "errx") return clearError();
+    if (a === "defaults") { params = {}; return run(); }
+    const open = t.closest("[data-open]")?.dataset.open;
+    if (open) { hideMenu(); return openFile(open); }
+    const tpl = t.closest("[data-tpl]")?.dataset.tpl;
+    if (tpl) { hideMenu(); return loadTemplate(tpl); }
+    const del = t.closest("[data-del]")?.dataset.del;
+    if (del) {
+      if (!(await ask(`Delete ${del}? It's removed from your custom folder and from any chart using it.`, { ok: "Delete", danger: true }))) return;
+      await api.del(`/api/custom/${encodeURIComponent(del)}`);
+      if (del === curFile) { curFile = null; syncTitle(); }
+      status(`Deleted ${esc(del)}`);
+      await loadFiles();
+      drawMenu(menu.querySelector(".sx-find")?.value || "");
     }
-    openFile(f, await api.get("/api/custom").catch(() => []));
   });
-  $("#seFind").oninput = () => refreshList();
+  $("#sxName").addEventListener("input", syncTitle);
   // Keys stay inside the editor (the chart's own shortcuts would otherwise fire), except these.
   root.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); run(); }
-    else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === "KeyS") { e.preventDefault(); save(); }
-    else if (e.key === "Escape" && !document.querySelector(".ow-dlg-wrap")) { e.preventDefault(); close(); }
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === "Enter") { e.preventDefault(); run(); }
+    else if (mod && !e.shiftKey && e.code === "KeyS") { e.preventDefault(); save(); }
+    else if (e.key === "Escape" && !document.querySelector(".ow-dlg-wrap")) {
+      e.preventDefault();
+      if (!menu.hidden) { hideMenu(); menuBtn.focus(); }
+      else if (!help.hidden) hideHelp();
+      else close();
+    }
     e.stopPropagation();
   });
-  // Drag the dividers: code | preview, and editor / console.
-  const drag = (handle, onMove) => handle.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    handle.setPointerCapture(e.pointerId);
-    const mv = (ev) => onMove(ev);
-    const up = () => { handle.removeEventListener("pointermove", mv); handle.removeEventListener("pointerup", up); };
-    handle.addEventListener("pointermove", mv);
-    handle.addEventListener("pointerup", up);
-  });
-  const body = $(".se-body"), codeEl = $(".se-code");
-  const savedW = Number(localStorage.getItem("ow.seSplit")) || 0;
-  if (savedW) body.style.setProperty("--se-prev", `${savedW}px`);
-  drag($("#seSplitX"), (ev) => {
-    const w = Math.min(Math.max(320, body.getBoundingClientRect().right - ev.clientX), body.clientWidth - 520);
-    body.style.setProperty("--se-prev", `${w}px`);
-    localStorage.setItem("ow.seSplit", String(Math.round(w)));
-  });
-  drag($("#seSplitY"), (ev) => {
-    const r = codeEl.getBoundingClientRect();
-    codeEl.style.setProperty("--se-con", `${Math.min(Math.max(70, r.bottom - ev.clientY), r.height - 160)}px`);
-  });
 
-  root.focusEditor = () => ta.focus();
-  root.loadTemplate = loadTemplate;
-  $("#sePrevOn").textContent = pane ? `${ticker(pane.cfg.symbol)} · ${pane.cfg.tf} · the active chart's bars` : "";
+  root.api = { focus: () => ta.focus(), loadTemplate };
+  $("#sxOn").textContent = pane ? `${ticker(pane.cfg.symbol)} · ${pane.cfg.tf}` : "";
   makeChart();
-  const list = await refreshList();
-  if (file) await openFile(file, list);
-  else if (template || fresh || !list.length) await loadTemplate(template || "band");
-  else await openFile([...list].sort((a, b) => b.mtime - a.mtime)[0].file, list);
+  await loadFiles();
+  if (file) await openFile(file);
+  else if (template || fresh || !files.length) await loadTemplate(template || "band");
+  else await openFile([...files].sort((a, b) => b.mtime - a.mtime)[0].file);
   ta.focus();
 }
 
