@@ -125,6 +125,26 @@ class App {
     await this.loadCustomIndicators();
     this.buildToolbar();
     initTopbarFit();
+    // One menu at a time. Each top-bar button stops its click from reaching the page, so the other
+    // dropdowns' "click elsewhere to close" never heard it and several stayed open together. This
+    // runs first, on every click: any dropdown or pop-up menu the click isn't in, or isn't the
+    // button of, closes.
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const own = t.closest(".dd");
+      document.querySelectorAll(".dd.open").forEach((dd) => {
+        if (dd !== own) {
+          dd.classList.remove("open");
+          dd.querySelector("[aria-expanded]")?.setAttribute("aria-expanded", "false");
+        }
+      });
+      if (t.closest(".wl-menu, .draw-fly")) return;
+      const keep = t.closest("#layoutsBtn") ? ".layouts-menu" : t.closest("#mktBtn") ? ".mkt-menu" : t.closest("#drawbar") ? ".draw-fly" : null;
+      document.querySelectorAll(".wl-menu, .draw-fly").forEach((m) => {
+        if (!keep || !m.matches(keep)) m.remove();
+      });
+    }, true);
     this.buildRangebar();
     this.buildDrawbar();
     this.setLayout(this.state.layout, false);
@@ -440,6 +460,9 @@ class App {
     input.onkeydown = (e) => { if (e.key === "Enter") done(); };
   }
   openLayouts(anchor) {
+    // The Layouts button again closes its menu.
+    const open = document.querySelector(".layouts-menu");
+    if (open) return open.remove();
     document.querySelector(".wl-menu")?.remove();
     const all = this.state.layouts || {};
     const cur = this.state.currentLayout;
@@ -1640,7 +1663,8 @@ class App {
     m.style.top = `${r.bottom + 6}px`;
     m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
     const close = (e) => {
-      if (e.type === "keydown" ? e.key !== "Escape" : m.contains(e.target)) return;
+      // The dot itself is left to its click, which closes the menu.
+      if (e.type === "keydown" ? e.key !== "Escape" : m.contains(e.target) || $("#mktBtn").contains(e.target)) return;
       m.remove();
       document.removeEventListener("mousedown", close, true);
       document.removeEventListener("keydown", close, true);
