@@ -1932,3 +1932,9 @@ body.se-open { overflow: hidden; }
 .se-root input[type="checkbox"] { accent-color: var(--accent); }
 .se-top .se-name .se-kind { flex: none !important; overflow: visible; text-overflow: clip; }
 .se-top .se-name .se-dirty { flex: none !important; width: 8px; height: 8px; }
+
+/* Fold arrow under the symbol: hides or shows the indicator list on the chart */
+.legend .lg-fold { overflow: visible; line-height: 1; margin-top: 1px; }
+.legend .lg-fold button { pointer-events: auto; display: inline-flex; align-items: center; gap: 3px; height: 20px; min-width: 22px; padding: 0 5px; border: 1px solid var(--chart-border); border-radius: 5px; background: var(--chart-bg); color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+.legend .lg-fold button:hover { color: var(--text); background: var(--hover); }
+.legend .lg-fold svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

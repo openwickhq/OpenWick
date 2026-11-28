@@ -908,6 +908,18 @@ export class ChartPane {
     if (b && (stl.legendOhlc !== false || stl.legendChange !== false))
       html += `<span class="ohlc ${cls}">${stl.legendOhlc !== false ? `<span><b>O</b>${fmtPrice(b.open)}</span><span><b>H</b>${fmtPrice(b.high)}</span><span><b>L</b>${fmtPrice(b.low)}</span><span><b>C</b>${fmtPrice(b.close)}</span>` : ""}${stl.legendChange !== false ? `<span>${fmtPct(chg)}</span>` : ""}</span>`;
     html += "</div>";
+    // The arrow under the symbol folds the indicator and compare rows away (for every chart), so
+    // their names don't sit over the candles; folded, it shows how many there are.
+    const extras = this.cfg.compare.length + this.cfg.indicators.filter((x) => BY_ID[x.id]).length;
+    const folded = !!stl.legendFolded && extras > 0;
+    const foldBtn = extras
+      ? `<div class="row lg-fold"><button data-act="fold" title="${folded ? "Show the indicator list" : "Hide the indicator list"}"><svg viewBox="0 0 24 24"><path d="${folded ? "M7 10l5 5 5-5" : "M7 14l5-5 5 5"}"/></svg>${folded ? `<span>${extras}</span>` : ""}</button></div>`
+      : "";
+    if (folded) {
+      this.legendEl.innerHTML = html + foldBtn;
+      this.legendEl.onclick = (e) => this.legendClick(e);
+      return;
+    }
     for (const sym of this.cfg.compare) {
       html += `<div class="row ind" data-compare="${esc(sym)}"><span class="name">${esc(ticker(sym))} (compare)</span><span class="acts"><button data-act="rmcompare" title="Remove">${ICON.x}</button></span></div>`;
     }
@@ -935,11 +947,20 @@ export class ChartPane {
     }
     for (const note of this.notes || [])
       html += `<div class="row note">${esc(note)}</div>`;
-    this.legendEl.innerHTML = html;
-    this.legendEl.onclick = (e) => {
+    this.legendEl.innerHTML = html + foldBtn;
+    this.legendEl.onclick = (e) => this.legendClick(e);
+  }
+
+  legendClick(e) {
+    {
       const btn = e.target.closest("[data-act]");
       if (!btn) return;
       const act = btn.dataset.act;
+      if (act === "fold") {
+        this.app.settings.legendFolded = !this.app.settings.legendFolded;
+        for (const p of this.app.panes) p.updateLegend();
+        return this.app.persist();
+      }
       if (act === "symbol") return this.app.openSymbolSearch();
       if (act === "rmcompare") {
         this.cfg.compare = this.cfg.compare.filter(
