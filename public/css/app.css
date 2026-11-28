@@ -1841,3 +1841,26 @@ kbd, .sc-keys kbd { display: inline-block; min-width: 20px; padding: 2px 6px; bo
 .legend .lg-fold button { pointer-events: auto; display: inline-flex; align-items: center; gap: 3px; height: 20px; min-width: 22px; padding: 0 5px; border: 1px solid var(--chart-border); border-radius: 5px; background: var(--chart-bg); color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
 .legend .lg-fold button:hover { color: var(--text); background: var(--hover); }
 .legend .lg-fold svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* First-run setup (first-run.js): which markets, and the home market. */
+.fr-wrap { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px; overflow: auto; background: var(--bg, #0c0c0c); animation: owDlgIn .15s ease-out; }
+.fr-wrap.again { background: rgba(0, 0, 0, .55); }
+.fr { width: min(520px, 100%); padding: 28px 28px 22px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 24px 60px -12px rgba(0, 0, 0, .55); color: var(--text); font-size: 14px; }
+.fr-logo { display: block; margin-bottom: 14px; }
+.fr h2 { margin: 0 0 6px; font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.fr-sub { margin: 0 0 16px; color: var(--muted); }
+.fr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.fr-opt { position: relative; display: grid; grid-template-columns: 18px 1fr; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); cursor: pointer; user-select: none; transition: border-color .12s, background .12s; }
+.fr-opt:hover { border-color: var(--muted); }
+.fr-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.fr-opt:has(input:checked) { border-color: var(--up); background: color-mix(in srgb, var(--up) 10%, transparent); }
+.fr-opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fr-box { grid-row: span 2; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--muted); }
+.fr-opt input:checked + .fr-box { border-color: var(--up); background: var(--up) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 13px no-repeat; }
+.fr-name { font-weight: 600; }
+.fr-ex { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-home { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; font-weight: 600; }
+.fr-home select { min-width: 180px; height: 36px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--panel-2, transparent); color: var(--text); font: inherit; font-weight: 400; }
+.fr-note { min-height: 3em; margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.fr-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.fr-btns .btn { min-width: 96px; height: 38px; }

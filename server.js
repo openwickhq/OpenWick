@@ -38,7 +38,7 @@ import { mergeCalendar, scheduledEvents } from "./lib/world-calendar.js";
 import * as logos from "./lib/logos.js";
 import * as notes from "./lib/notes.js";
 import * as markets from "./lib/markets-data.js";
-import { stockId } from "./public/lib/markets.js";
+import { stockId, COUNTRIES } from "./public/lib/markets.js";
 
 // Screener data by market (also what screener alerts check).
 const SCREENS = {
@@ -491,6 +491,26 @@ async function handle(req, res) {
           outputs: (d.outputs || []).map((o) => o.key),
         })),
       );
+    // The first-run setup: the markets ticked and the home market. `needed` is true only on a new
+    // install (no setup saved and no watchlists yet), so people who already use OpenWick never see it.
+    if (p === "/api/setup") {
+      const saved = store.read("setup", null);
+      if (req.method === "GET") {
+        const st = store.read("state", null);
+        return send(res, 200, { ...(saved || {}), needed: !saved && !st?.watchlists });
+      }
+      if (req.method === "POST") {
+        const b = await readBody(req);
+        const codes = COUNTRIES.filter((c) => c.ex).map((c) => c.code);
+        const next = { ...(saved || {}) };
+        if (codes.includes(b.home)) next.home = b.home;
+        if (Array.isArray(b.countries)) next.countries = b.countries.filter((c) => codes.includes(c));
+        if (typeof b.crypto === "boolean") next.crypto = b.crypto;
+        next.updated = new Date().toISOString();
+        store.write("setup", next);
+        return send(res, 200, { ok: true });
+      }
+    }
     if (p === "/api/state") {
       if (req.method === "GET") return send(res, 200, store.read("state", {}));
       if (req.method === "PUT") {

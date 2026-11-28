@@ -7,6 +7,7 @@ import SYMBOLS from "./symbol-index.js";
 import { askText, notice } from "./dialog.js";
 import "./selects.js";
 import { country, setCountry, PICKS } from "./country.js";
+import { firstRun } from "./first-run.js";
 import { EXCHANGES, sessionNow, shortName, bigMoney } from "../lib/markets.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
@@ -214,6 +215,7 @@ function openCountryMenu(btn) {
 
 // Fills <header class="h-nav"> and applies the saved theme. `active` names the current page.
 export async function mountSite(active) {
+  await firstRun();
   const header = $("header.h-nav");
   header.innerHTML = `<a class="h-brand" href="/">${LOGO}<span>OpenWick</span></a>
     <div class="h-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg><input id="navQ" placeholder="Search (Ctrl+K)" autocomplete="off" /><div class="h-results" id="navResults"></div></div>

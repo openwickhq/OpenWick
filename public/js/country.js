@@ -2,7 +2,7 @@
 // and calendar show. Remembered on this computer; on a first visit it's guessed from the
 // browser's language and time zone (see guess()). Charts don't depend on it: every symbol
 // keeps its own exchange's hours and currency.
-import { COUNTRIES, countryByCode, EXCHANGES } from "../lib/markets.js";
+import { COUNTRIES, countryByCode, EXCHANGES, shortName } from "../lib/markets.js";
 
 const KEY = "ow.country";
 // First visit: the nearest of the six markets by time zone; where none is near, the browser's
@@ -41,6 +41,8 @@ export const country = () => countryByCode[countryCode()];
 export function setCountry(code) {
   if (!countryByCode[code]?.ex) return;
   localStorage.setItem(KEY, code);
+  // Also saved in the data folder, so the desktop app and a browser on this computer agree.
+  fetch("/api/setup", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ home: code }) }).catch(() => {});
   const u = new URL(location.href);
   if (u.searchParams.has("country")) u.searchParams.delete("country");
   // Pages that show one country's lists pick their own default tab again.
@@ -111,5 +113,26 @@ export const starterWatchlist = (code = countryCode()) => {
   const s = STARTER[code] || STARTER.US;
   return [...s.indices, ...s.stocks, ...s.extra];
 };
+export const CRYPTO_STARTER = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "XRPUSDT", "SOLUSDT", "DOGEUSDT", "ADAUSDT", "TRXUSDT"].map((s) => `BINANCE:${s}`);
+
+// The watchlists the first-run setup makes (first-run.js): one per market ticked, home market
+// first, each with its indices, five biggest stocks, currency and gold; and a Crypto list when
+// crypto is ticked. One market alone makes "Main", as before. Run again from Settings, it's given
+// the lists already there (`existing`) and returns only new ones, named after the country, so
+// nothing anyone made is replaced.
+export function starterLists({ countries = [], home, crypto = false } = {}, existing = null) {
+  const ticked = countries.filter((c) => STARTER[c]);
+  const order = [...(ticked.includes(home) ? [home] : []), ...ticked.filter((c) => c !== home)];
+  const lists = {};
+  const named = existing || order.length > 1;
+  for (const c of order) {
+    const s = STARTER[c];
+    lists[named ? shortName(countryByCode[c]) : "Main"] = [...s.indices, ...s.stocks, ...s.extra.filter((x) => !x.startsWith("BINANCE:"))];
+  }
+  if (crypto) lists.Crypto = [...CRYPTO_STARTER];
+  if (!existing && !Object.keys(lists).length) lists.Main = starterWatchlist(STARTER[home] ? home : "US");
+  if (existing) for (const k of Object.keys(lists)) if (k in existing) delete lists[k];
+  return lists;
+}
 
 export const home = () => HOME[countryCode()];

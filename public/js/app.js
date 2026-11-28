@@ -1,5 +1,6 @@
 import { EXCHANGES } from "../lib/markets.js";
-import { homeExchange, home, HOME, starterWatchlist } from "./country.js";
+import { homeExchange, home, HOME, starterWatchlist, starterLists, countryCode } from "./country.js";
+import { firstRun, openSetup } from "./first-run.js";
 import { api, download, esc, fmtPrice, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
 import { TOOLS, TOOL_BY_ID, TOOL_GROUPS } from "./drawings.js";
@@ -78,6 +79,7 @@ class App {
   }
 
   async init() {
+    await firstRun();
     let state = {};
     try {
       state = await api.get("/api/state");
@@ -88,8 +90,8 @@ class App {
       layout: "1",
       panes: [
         {
-          // A first run opens on the country's main index, the top of its starter watchlist.
-          symbol: starterWatchlist()[0],
+          // A first run opens on the top of its first watchlist: the home market's main index.
+          symbol: state?.watchlists?.[state.activeWatchlist]?.[0] || starterWatchlist()[0],
           tf: "1D",
           type: "candles",
           indicators: [
@@ -1184,6 +1186,7 @@ class App {
         '<p class="st-note">Marked under the bar as D (dividend) and S (split), for NSE and BSE stocks.</p>',
       general: head("Data") + row('<span>Bars to load per chart</span>', `<input class="st-input" type="number" data-k="bars" min="200" max="20000" step="100" value="${Number(v.bars) || 3000}">`) +
         head("Drawing") + row('<span>After placing a drawing</span>', select("stayInDrawMode", [["false", "Back to cursor"], ["true", "Keep the tool"]])) +
+        head("Markets") + row('<span>The markets you follow and your home market</span>', '<button class="btn" data-setup>Change…</button>') +
         `<p class="st-note">Press <kbd>?</kbd> on the chart for the list of keyboard shortcuts.</p><p class="st-note">Everything you save stays on your computer, in your OpenWick data folder.</p>${window.openwickDesktop ? head("Desktop app") + row("Interface size", '<select class="st-input" data-zoom><option value="auto">Auto (fits your screen)</option>' + [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3].map((z) => `<option value="${z}">${Math.round(z * 100)}%</option>`).join("") + '</select>') + '<div class="st-desk"><button class="btn" data-desk="checkForUpdates">Check for updates</button><button class="btn" data-desk="openDataFolder">Open data folder</button><button class="btn" data-desk="about">About OpenWick</button></div>' : ""}<p class="st-note">OpenWick, created by Sourav Chakraborty and the OpenWick contributors. Open source under the MIT licence.</p><p class="st-note">Charts are drawn with <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>'s open-source Lightweight Charts™ library (Apache 2.0, see NOTICE).</p>`,
     })[page];
     const card = this.modal(
@@ -1234,6 +1237,10 @@ class App {
     card.addEventListener("click", (e) => {
       const b = e.target.closest("[data-desk]");
       if (b) window.openwickDesktop?.[b.dataset.desk]?.();
+      if (e.target.closest("[data-setup]")) {
+        this.closeModal();
+        this.runSetup();
+      }
     });
     card.addEventListener("input", () => { read(); preview(); });
     card.addEventListener("change", () => { read(); preview(); });
@@ -1282,6 +1289,27 @@ class App {
         if (Array.isArray(res[o.key])) extra[`${ind.id}_${o.key}`] = res[o.key];
     }
     download(`${ticker(p.cfg.symbol)}-${p.cfg.tf}.csv`, toCsv(p.shown, extra));
+  }
+
+  // Settings → General → Markets: the first-run setup again. Adds the watchlists of newly ticked
+  // markets (never replacing a list) and moves the home market.
+  async runSetup() {
+    let current = {};
+    try {
+      current = (await api.get("/api/setup")) || {};
+    } catch {
+      /* start from the guess */
+    }
+    const choice = await openSetup({ again: true, current: { ...current, home: current.home || countryCode(), lists: this.state.watchlists } });
+    if (!choice) return;
+    const add = starterLists(choice, this.state.watchlists || {});
+    if (Object.keys(add).length) {
+      this.state.watchlists = { ...this.state.watchlists, ...add };
+      await api.put("/api/state", { watchlists: this.state.watchlists });
+    }
+    await api.post("/api/setup", choice).catch(() => {});
+    localStorage.setItem("ow.country", choice.home);
+    location.reload();
   }
 
   // Reset chart view: the active chart, or every chart when they're synced.

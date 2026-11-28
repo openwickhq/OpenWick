@@ -51,3 +51,21 @@ test("starter watchlists: every country has indices, five stocks and crypto, wit
     assert.equal(new Set(list).size, list.length, `${code} has a repeat`);
   }
 });
+
+test("first-run setup: the watchlists made for each choice", async () => {
+  const { starterLists, STARTER, CRYPTO_STARTER } = await import("../public/js/country.js");
+  // One market: "Main", with no crypto in it; crypto ticked adds its own list.
+  let l = starterLists({ countries: ["IN"], home: "IN", crypto: true });
+  assert.deepEqual(Object.keys(l), ["Main", "Crypto"]);
+  assert.equal(l.Main[0], STARTER.IN.indices[0]);
+  assert.ok(!l.Main.some((s) => s.startsWith("BINANCE:")));
+  assert.deepEqual(l.Crypto, CRYPTO_STARTER);
+  // Several: one per market, named after it, home first.
+  l = starterLists({ countries: ["IN", "US", "GB"], home: "US", crypto: false });
+  assert.deepEqual(Object.keys(l), ["USA", "India", "UK"]);
+  // Crypto only: a Crypto list, nothing else.
+  assert.deepEqual(Object.keys(starterLists({ countries: [], home: "JP", crypto: true })), ["Crypto"]);
+  // Run again: only lists that aren't there yet, never "Main", never replacing one.
+  l = starterLists({ countries: ["IN", "DE"], home: "DE", crypto: true }, { Main: ["X"], Crypto: ["Y"], India: ["Z"] });
+  assert.deepEqual(Object.keys(l), ["Germany"]);
+});

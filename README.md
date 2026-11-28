@@ -10,7 +10,7 @@ Created by **Sourav Chakraborty**. Open source under the MIT licence.
 
 ## Countries
 
-Pick a country from the globe in the top bar. The home page, Markets, Screener, Heatmap, News and calendar then show that market; crypto is on every country's pages. It's guessed from your time zone the first time, and remembered. A link with `?country=US` opens that market.
+The first time OpenWick opens, it asks which markets you follow (tick one or more, and crypto) and which is your home market; your time zone's market is ticked already. Each market ticked gets a starter watchlist with its main indices and five biggest stocks, and crypto gets one with the big coins. The home page, Markets, Screener, Heatmap, News and calendar show your home market; switch it any time from the globe in the top bar, or tick more markets in Settings → General → Markets (that adds lists and never replaces yours). A link with `?country=US` opens that market.
 
 | Country | Main stock list | Indices | Currency |
 |---|---|---|---|
