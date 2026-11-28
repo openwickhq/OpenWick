@@ -45,3 +45,18 @@ test("fundamentals: missing figures give empty values, and every metric follows 
     assert.deepEqual(d.calc(bars, {}).value, [null, null, null, null]);
   }
 });
+
+test("fundamentals: other countries use millions in their own currency, London prices are in pence", () => {
+  const d = (id) => FUND_INDICATORS.find((x) => x.id === id);
+  const usd = { ...info, currency: "USD" };
+  const calc = (id, inf, p = {}) => d(id).calc(bars, { ...Object.fromEntries(d(id).inputs.map((i) => [i.key, i.default])), ...p, _fin: inf }).value;
+  // revenue 1e10 → 10,000 million; shown as $10.0B
+  assert.deepEqual(calc("fin:rev", usd, { period: "Annual" }), [null, 10000, 10000, 10000]);
+  assert.equal(d("fin:rev").fmt(10000, usd), "$10.0B");
+  assert.equal(d("fin:rev").fmt(1000, info), "₹1,000 Cr");
+  assert.equal(d("fin:eps").fmt(-2.5, { currency: "GBP" }), "−£2.50");
+  // close 100 pence = £1; market cap £1 × 1e8 = £100M; P/E 1e8 / 1e9 = 0.1
+  const gbp = { ...info, currency: "GBP", pence: true };
+  assert.deepEqual(calc("fin:mcap", gbp), [100, 100, 100, 100]);
+  assert.deepEqual(calc("fin:pe", gbp), [null, 0.1, 0.1, 0.1]);
+});

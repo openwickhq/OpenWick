@@ -23,7 +23,9 @@ const TILES = H.tiles;
 const spark = {};
 let tileQuotes = {};
 function sparkSvg(closes, up) {
-  if (!closes?.length) return "<svg></svg>";
+  // A line needs two points (a market that has only just opened can have one).
+  closes = (closes || []).filter(Number.isFinite);
+  if (closes.length < 2) return "<svg></svg>";
   const w = 160, h = 44, min = Math.min(...closes), max = Math.max(...closes);
   const pts = closes.map((c, i) => `${((i / (closes.length - 1)) * w).toFixed(1)},${(h - 3 - ((c - min) / (max - min || 1)) * (h - 6)).toFixed(1)}`);
   const col = getComputedStyle(document.documentElement).getPropertyValue(up ? "--up" : "--down").trim();
@@ -196,7 +198,8 @@ async function loadNews(box, symbol) {
 async function loadCalendar() {
   try {
     const rows = (await api.get(INDIA ? "/api/calendar" : `/api/calendar?country=${countryCode()}`)).filter((r) => r.impact === "High" && Date.parse(r.date) > Date.now() - 6 * 3600e3);
-    const KIND = { rbi: "RBI", data: "Data", expiry: "F&O", market: "NSE", budget: "Budget" };
+    const BANK = { US: "Fed", GB: "BoE", DE: "ECB", JP: "BoJ", HK: "Rates" };
+    const KIND = { rbi: "RBI", data: "Data", expiry: INDIA ? "F&O" : "Expiry", market: "NSE", budget: "Budget", bank: BANK[countryCode()] || "Rates" };
     $("#calendar").innerHTML = rows.slice(0, 9).map((r) => {
       const d = new Date(r.date);
       const when = d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });

@@ -1,6 +1,6 @@
 // Side panel (watchlist, alerts, calendar, news) and bottom panel (tester, paper, editor, seasonals, financials).
 // The screener and heatmap have their own pages (public/screener.html, public/heatmap.html).
-import { countryCode } from "./country.js";
+import { countryCode, PICKS } from "./country.js";
 import { currencyOf } from "./currency.js";
 import { exchangeOf, sessionNow } from "../lib/markets.js";
 import {
@@ -747,11 +747,18 @@ export function initPanels(app) {
 
   // ======================= CALENDAR =======================
   // India's own calendar (RBI, F&O expiry, NSE holidays) when India is picked; the world feed otherwise.
-  let calFilter = "Medium", calView = countryCode() === "IN" ? "india" : "economic", calMine = false;
-  const CAL_KIND = { rbi: "RBI", data: "Data", expiry: "Expiry", market: "Market", budget: "Budget" };
+  // The calendar: one country's events (the country picked in the top bar to start with), the whole
+  // world's week, or earnings / dividends.
+  const CAL_COUNTRIES = PICKS.filter((c) => c.code !== "CRYPTO");
+  let calFilter = "Medium", calView = CAL_COUNTRIES.some((c) => c.code === countryCode()) ? countryCode() : "economic", calMine = false;
+  const CAL_KIND = { rbi: "RBI", data: "Data", expiry: "Expiry", market: "Market", budget: "Budget", bank: "Central bank" };
+  const CAL_NOTE = {
+    IN: "Dates follow the RBI's published schedule, NSE's holiday list and the usual release days for government data. Times are IST, shown in your local time.",
+    other: "This week's releases come from the live economic calendar; central-bank decisions (from each bank's published schedule) and index expiries are worked out by OpenWick. Times are shown in your local time.",
+  };
   async function renderCalendar() {
-    side.innerHTML = `<div class="pad row-flex"><select class="in" id="calV"><option value="india">India</option><option value="economic">World</option></select><span class="spacer"></span>${
-      calView === "economic" || calView === "india"
+    side.innerHTML = `<div class="pad row-flex"><select class="in" id="calV">${CAL_COUNTRIES.map((c) => `<option value="${c.code}">${esc(c.short || c.name)}</option>`).join("")}<option value="economic">World (this week)</option></select><span class="spacer"></span>${
+      calView === "economic" || CAL_COUNTRIES.some((c) => c.code === calView)
         ? '<select class="in" id="calF"><option value="all">All</option><option value="Medium">Medium + high</option><option value="High">High impact</option></select>'
         : `<label class="hint-text"><input type="checkbox" id="calMine" ${calMine ? "checked" : ""}> My watchlists</label>`
     }</div><div id="calList" class="pad hint-text">Loading…</div>`;
@@ -764,8 +771,8 @@ export function initPanels(app) {
     const fmtDay = (iso) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
     const mine = new Set(Object.values(app.state.watchlists || {}).flat());
     try {
-      if (calView === "india") {
-        const rows = (await api.get("/api/calendar")).filter((r) => Date.parse(r.date) > Date.now() - 12 * 3600e3);
+      if (CAL_COUNTRIES.some((c) => c.code === calView)) {
+        const rows = (await api.get(calView === "IN" ? "/api/calendar" : `/api/calendar?country=${calView}`)).filter((r) => Date.parse(r.date) > Date.now() - 12 * 3600e3);
         const keep = (r) => calFilter === "all" || r.impact === "High" || (calFilter === "Medium" && r.impact === "Medium");
         let day = "";
         list.className = "";
@@ -773,9 +780,11 @@ export function initPanels(app) {
           const d = new Date(r.date);
           const label = d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
           const head = label !== day ? dayHead((day = label)) : "";
-          const time = r.kind === "market" && /holiday/i.test(r.title) ? "All day" : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-          return `${head}<div class="card"><div class="top"><span>${CAL_KIND[r.kind] && !r.title.startsWith(CAL_KIND[r.kind]) ? `<b>${esc(CAL_KIND[r.kind])}</b> ` : ""}${esc(r.title)}</span><span class="impact-${esc(r.impact)}">${esc(r.impact)}</span></div><div class="sub">${esc(time)}${r.note ? ` · ${esc(r.note)}` : ""}</div></div>`;
-        }).join("") + '<p class="pad hint-text">Dates follow the RBI\'s published schedule, NSE\'s holiday list and the usual release days for government data. Times are IST, shown in your local time.</p>';
+          const time = (r.kind === "market" && /holiday/i.test(r.title)) || r.impact === "Holiday" ? "All day" : d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+          const extra = [r.note, r.forecast ? `forecast ${r.forecast}` : "", r.previous ? `previous ${r.previous}` : ""].filter(Boolean).map(esc).join(" · ");
+          const tag = CAL_KIND[r.kind] && r.kind !== "bank" && !r.title.startsWith(CAL_KIND[r.kind]) ? `<b>${esc(CAL_KIND[r.kind])}</b> ` : "";
+          return `${head}<div class="card"><div class="top"><span>${tag}${esc(r.title)}</span><span class="impact-${esc(r.impact)}">${esc(r.impact)}</span></div><div class="sub">${esc(time)}${extra ? ` · ${extra}` : ""}</div></div>`;
+        }).join("") + `<p class="pad hint-text">${CAL_NOTE[calView] || CAL_NOTE.other}</p>`;
         return;
       }
       if (calView === "economic") {

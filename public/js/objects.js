@@ -119,7 +119,7 @@ function dataHtml(pane, index) {
     if (res.error) { h += `<div class="ot-empty down">${esc(res.error)}</div>`; continue; }
     for (const o of def.outputs || []) {
       const v = res[o.key]?.[i];
-      h += kv(esc(!o.label || o.label === def.name ? "Value" : o.label), Number.isFinite(v) ? (def.fmt ? def.fmt(v) : fmtPrice(v)) : "—", `color:${ind.colors?.[o.key] || o.color || "inherit"}`);
+      h += kv(esc(!o.label || o.label === def.name ? "Value" : o.label), Number.isFinite(v) ? (def.fmt ? def.fmt(v, pane.app.figures?.[pane.cfg.symbol]) : fmtPrice(v)) : "—", `color:${ind.colors?.[o.key] || o.color || "inherit"}`);
     }
   }
   return h;

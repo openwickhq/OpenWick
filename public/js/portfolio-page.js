@@ -181,7 +181,7 @@ function draw() {
   for (const r of R) r.weight = total ? ((r.value ?? r.cost) / total) * 100 : null;
   const cols = [
     { k: "symbol", h: "Stock", l: 1, cell: (r) => `<td class="l"><div class="sym-cell">${starButton(yahoo(r.symbol))}<a class="sym" href="${esc(pageUrl(yahoo(r.symbol)))}">${badge(yahoo(r.symbol), r.label)}<span><b>${esc(r.label)}</b><small>${esc(r.name)}${r.cur !== BASE ? ` · ${esc(r.cur)}` : ""}</small></span></a></div></td>` },
-    { k: "qty", h: "Qty", cell: (r) => `<td>${r.qty.toLocaleString("en-IN")}</td>` },
+    { k: "qty", h: "Qty", cell: (r) => `<td>${r.qty.toLocaleString(BASE === "INR" ? "en-IN" : "en-US")}</td>` },
     { k: "avg", h: "Avg cost", cell: (r) => `<td>${r.avg ? fmtPrice(r.avg) : "—"}</td>` },
     { k: "ltp", h: "LTP", cell: (r) => `<td>${r.ltp != null ? fmtPrice(r.ltp) : "…"}</td>` },
     { k: "dayPct", h: "Today", cell: (r) => `<td class="${cls(r.dayPct)}">${r.dayPct != null ? fmtPct(r.dayPct) : "—"}</td>` },

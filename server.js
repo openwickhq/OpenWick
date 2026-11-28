@@ -34,6 +34,7 @@ import { quantChecks } from "./public/lib/quant.js";
 import { parseTf } from "./public/lib/series.js";
 import { relaunchForProxy, proxyNote } from "./lib/proxy.js";
 import { indiaEvents } from "./lib/india-calendar.js";
+import { mergeCalendar, scheduledEvents } from "./lib/world-calendar.js";
 import * as logos from "./lib/logos.js";
 import * as notes from "./lib/notes.js";
 import * as markets from "./lib/markets-data.js";
@@ -324,12 +325,17 @@ async function handle(req, res) {
           (q.symbols || "").split(",").filter(Boolean).slice(0, 600),
         ),
       );
-    // India events are worked out locally; ?region=world is the outside-the-US feed.
-    // ?country=US (GB, JP, DE, HK): that country's economic events from the world feed.
+    // India's events are worked out locally; ?region=world is the whole week's world feed.
+    // ?country=US (GB, JP, DE, HK): that country's rows from the world feed (this week only), plus
+    // its central-bank decisions and expiries worked out locally (lib/world-calendar.js), so it
+    // isn't empty at a weekend or when the feed is down.
     const CAL_CUR = { US: ["USD"], GB: ["GBP"], JP: ["JPY"], DE: ["EUR"], HK: ["CNY", "HKD"] };
     if (p === "/api/calendar") {
       const c = String(q.country || "").toUpperCase();
-      if (CAL_CUR[c]) return send(res, 200, await data.economicCalendar(CAL_CUR[c]));
+      if (CAL_CUR[c]) {
+        const feed = await data.economicCalendar(CAL_CUR[c]).catch(() => []);
+        return send(res, 200, feed.length ? mergeCalendar(c, feed) : scheduledEvents(c));
+      }
       return send(res, 200, q.region === "world" ? await data.economicCalendar() : indiaEvents());
     }
     if (p === "/api/news") return send(res, 200, await info.news(q.symbol));

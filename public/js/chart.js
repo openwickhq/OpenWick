@@ -784,7 +784,7 @@ export class ChartPane {
           // "Scale price chart only" (on by default): lines on the price chart don't stretch its scale.
           ...(def.noAutoscale || (pane === 0 && !bottom && this.app.settings.scalePriceOnly !== false) ? { autoscaleInfoProvider: () => null } : {}),
           ...(def.volumeFormat ? { priceFormat: { type: "volume" } } : {}),
-          ...(def.priceFormat ? { priceFormat: def.priceFormat } : {}),
+          ...(def.priceFormat ? { priceFormat: def.fundamental ? { ...def.priceFormat, formatter: (v) => def.fmt(v, this.app.figures?.[this.cfg.symbol]) } : def.priceFormat } : {}),
           color,
           priceLineVisible: false,
           // Style tab: "Labels on price scale" (default: on in its own pane, off on the price chart)
@@ -937,7 +937,7 @@ export class ChartPane {
             .map((o) => {
               const v = res[o.key]?.[i];
               return Number.isFinite(v)
-                ? `<span style="color:${ind.colors?.[o.key] || o.color}">${def.fmt ? def.fmt(v) : fmtPrice(v)}</span>`
+                ? `<span style="color:${ind.colors?.[o.key] || o.color}">${def.fmt ? def.fmt(v, this.app.figures?.[this.cfg.symbol]) : fmtPrice(v)}</span>`
                 : "";
             })
             .join(" ");

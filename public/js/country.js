@@ -1,22 +1,32 @@
 // The country picked in the top bar: which market the home page, Markets, Screener, Heatmap, news
-// and calendar show. Remembered on this computer; on a first visit it's guessed from the time zone
-// (India unless you're in one of the other countries). Charts don't depend on it: every symbol
+// and calendar show. Remembered on this computer; on a first visit it's guessed from the
+// browser's language and time zone (see guess()). Charts don't depend on it: every symbol
 // keeps its own exchange's hours and currency.
 import { COUNTRIES, countryByCode, EXCHANGES } from "../lib/markets.js";
 
 const KEY = "ow.country";
-const BY_ZONE = {
-  "America/": "US", "US/": "US",
-  "Europe/London": "GB", "Europe/Belfast": "GB",
-  "Asia/Tokyo": "JP",
-  "Europe/Berlin": "DE", "Europe/Busingen": "DE",
-  "Asia/Hong_Kong": "HK",
-};
+// First visit: the nearest of the six markets by time zone; where none is near, the browser's
+// language region when it's one of the six (en-IN, de-AT…); otherwise the USA. (The language
+// comes second because most browsers say en-US wherever they are.)
+const BY_REGION = { IN: "IN", US: "US", GB: "GB", JP: "JP", DE: "DE", AT: "DE", CH: "DE", HK: "HK", MO: "HK" };
+const ZONES = [
+  ["IN", /^(Asia\/(Kolkata|Calcutta|Colombo|Kathmandu|Katmandu|Dhaka|Dacca|Thimphu|Thimbu)|Indian\/Maldives)$/],
+  ["JP", /^Asia\/(Tokyo|Seoul)$/],
+  ["HK", /^Asia\/(Hong_Kong|Macau|Shanghai|Chongqing|Chungking|Harbin|Urumqi|Taipei|Singapore|Kuala_Lumpur|Manila|Jakarta|Bangkok|Ho_Chi_Minh|Saigon)$/],
+  ["GB", /^(Europe\/(London|Dublin|Belfast|Isle_of_Man|Jersey|Guernsey|Lisbon)|Atlantic\/(Reykjavik|Canary|Madeira|Faroe)|Africa\/)/],
+  ["DE", /^(Europe|Arctic)\//],
+];
 function guess() {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  for (const [k, v] of Object.entries(BY_ZONE)) if (tz === k || (k.endsWith("/") && tz.startsWith(k))) return v;
-  return "IN";
+  const byZone = ZONES.find(([, re]) => re.test(tz))?.[0];
+  if (byZone) return byZone;
+  for (const lang of navigator.languages || [navigator.language]) {
+    const region = /[-_]([A-Za-z]{2})\b/.exec(lang || "")?.[1]?.toUpperCase();
+    if (BY_REGION[region]) return BY_REGION[region];
+  }
+  return "US";
 }
+
 export function countryCode() {
   // ?country=US in a link wins (and is remembered), so a shared link opens the same market.
   const fromUrl = new URLSearchParams(location.search).get("country")?.toUpperCase();
@@ -56,31 +66,31 @@ export const HOME = {
     adjective: "US", universe: "us", indices: "us-indices", news: "market:US", newsSources: "CNBC, MarketWatch",
     tiles: [["S&P 500", "YAHOO:^GSPC"], ["Nasdaq", "YAHOO:^IXIC"], ["Dow Jones", "YAHOO:^DJI"], ["Russell 2000", "YAHOO:^RUT"], ["VIX", "YAHOO:^VIX"], ...COMMON],
     chips: [["S&P 500", "YAHOO:^GSPC"], ["Nasdaq-100", "YAHOO:^NDX"], ["Apple", "US:AAPL"], ["Nvidia", "US:NVDA"], ["Microsoft", "US:MSFT"], ["Tesla", "US:TSLA"], ["Bitcoin", "BINANCE:BTCUSDT"], ["EUR/USD", "FX:EURUSD"]],
-    placeholder: "AAPL, NVDA, S&P 500, BTC…", calendar: "US calendar", calendarNote: "Fed, jobs, inflation",
+    placeholder: "AAPL, NVDA, S&P 500, BTC…", calendar: "US calendar", calendarNote: "Fed, jobs, inflation, expiries",
   },
   GB: {
     adjective: "UK", universe: "gb", indices: "gb-indices", news: "market:GB", newsSources: "BBC Business, City A.M.",
     tiles: [["FTSE 100", "YAHOO:^FTSE"], ["FTSE 250", "YAHOO:^FTMC"], ["FTSE All-Share", "YAHOO:^FTAS"], ["GBP / USD", "FX:GBPUSD"], ["EUR / GBP", "FX:EURGBP"], ...COMMON],
     chips: [["FTSE 100", "YAHOO:^FTSE"], ["Shell", "YAHOO:SHEL.L"], ["AstraZeneca", "YAHOO:AZN.L"], ["HSBC", "YAHOO:HSBA.L"], ["Rolls-Royce", "YAHOO:RR.L"], ["BP", "YAHOO:BP.L"], ["Bitcoin", "BINANCE:BTCUSDT"], ["GBP/USD", "FX:GBPUSD"]],
-    placeholder: "SHEL, AZN, FTSE 100, BTC…", calendar: "UK calendar", calendarNote: "Bank of England, inflation, jobs",
+    placeholder: "SHEL, AZN, FTSE 100, BTC…", calendar: "UK calendar", calendarNote: "Bank of England, inflation, FTSE expiries",
   },
   JP: {
     adjective: "Japanese", universe: "jp", indices: "jp-indices", news: "market:JP", newsSources: "Nikkei Asia, Japan Times",
     tiles: [["Nikkei 225", "YAHOO:^N225"], ["TOPIX (fund)", "YAHOO:1306.T"], ["USD / JPY", "FX:USDJPY"], ["EUR / JPY", "FX:EURJPY"], ["S&P 500", "YAHOO:^GSPC"], ...COMMON],
     chips: [["Nikkei 225", "YAHOO:^N225"], ["Toyota", "YAHOO:7203.T"], ["Sony", "YAHOO:6758.T"], ["SoftBank", "YAHOO:9984.T"], ["Mitsubishi UFJ", "YAHOO:8306.T"], ["Nintendo", "YAHOO:7974.T"], ["Bitcoin", "BINANCE:BTCUSDT"], ["USD/JPY", "FX:USDJPY"]],
-    placeholder: "Toyota, 7203, Nikkei 225, BTC…", calendar: "Japan calendar", calendarNote: "Bank of Japan, inflation, trade",
+    placeholder: "Toyota, 7203, Nikkei 225, BTC…", calendar: "Japan calendar", calendarNote: "Bank of Japan, inflation, SQ",
   },
   DE: {
     adjective: "German", universe: "de", indices: "de-indices", news: "market:DE", newsSources: "DW Business, Handelsblatt",
     tiles: [["DAX", "YAHOO:^GDAXI"], ["MDAX", "YAHOO:^MDAXI"], ["SDAX", "YAHOO:^SDAXI"], ["TecDAX", "YAHOO:^TECDAX"], ["EUR / USD", "FX:EURUSD"], ...COMMON],
     chips: [["DAX", "YAHOO:^GDAXI"], ["SAP", "YAHOO:SAP.DE"], ["Siemens", "YAHOO:SIE.DE"], ["Allianz", "YAHOO:ALV.DE"], ["Deutsche Telekom", "YAHOO:DTE.DE"], ["Rheinmetall", "YAHOO:RHM.DE"], ["Bitcoin", "BINANCE:BTCUSDT"], ["EUR/USD", "FX:EURUSD"]],
-    placeholder: "SAP, Siemens, DAX, BTC…", calendar: "Euro area calendar", calendarNote: "ECB, inflation, German data",
+    placeholder: "SAP, Siemens, DAX, BTC…", calendar: "Euro area calendar", calendarNote: "ECB, German data, DAX expiries",
   },
   HK: {
     adjective: "Hong Kong", universe: "hk", indices: "hk-indices", news: "market:HK", newsSources: "SCMP Business",
     tiles: [["Hang Seng", "YAHOO:^HSI"], ["Hang Seng TECH", "YAHOO:HSTECH.HK"], ["HS China Enterprises", "YAHOO:^HSCE"], ["S&P 500", "YAHOO:^GSPC"], ["Nikkei 225", "YAHOO:^N225"], ...COMMON],
     chips: [["Hang Seng", "YAHOO:^HSI"], ["Tencent", "YAHOO:0700.HK"], ["Alibaba", "YAHOO:9988.HK"], ["HSBC", "YAHOO:0005.HK"], ["Meituan", "YAHOO:3690.HK"], ["Xiaomi", "YAHOO:1810.HK"], ["Bitcoin", "BINANCE:BTCUSDT"], ["Ethereum", "BINANCE:ETHUSDT"]],
-    placeholder: "Tencent, 0700, Hang Seng, BTC…", calendar: "China calendar", calendarNote: "China's data and the PBoC",
+    placeholder: "Tencent, 0700, Hang Seng, BTC…", calendar: "China calendar", calendarNote: "China's data, the PBoC, HSI expiries",
   },
 };
 export const home = () => HOME[countryCode()];

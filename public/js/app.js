@@ -1,5 +1,5 @@
 import { EXCHANGES } from "../lib/markets.js";
-import { homeExchange } from "./country.js";
+import { homeExchange, home, HOME } from "./country.js";
 import { api, download, esc, fmtPrice, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
 import { TOOLS, TOOL_BY_ID, TOOL_GROUPS } from "./drawings.js";
@@ -55,18 +55,9 @@ const RANGES = [
   ["All", "1M", "all"],
 ];
 const LAYOUTS = { 1: 1, "2v": 2, "2h": 2, 3: 3, 4: 4, 6: 6, 8: 8, 16: 16 };
-const DEFAULT_WATCHLISTS = {
-  Main: [
-    "YAHOO:^NSEI",
-    "YAHOO:^NSEBANK",
-    "YAHOO:RELIANCE.NS",
-    "YAHOO:HDFCBANK.NS",
-    "YAHOO:TCS.NS",
-    "BINANCE:BTCUSDT",
-    "BINANCE:ETHUSDT",
-    "FX:USDINR",
-  ],
-};
+// A first run's watchlist: the main index, big stocks, Bitcoin, Ether and the currency of the
+// country picked in the top bar (guessed from the time zone on a first visit).
+const DEFAULT_WATCHLISTS = () => ({ Main: [...new Set((home() || HOME.US).chips.map(([, s]) => s))] });
 
 // The Volume every chart starts with; its moving average is there but hidden (Style tab turns it on).
 const volumeIndicator = () => ({ uid: newUid(), id: "volume", params: {}, style: { off: { ma: true } } });
@@ -103,7 +94,7 @@ class App {
           ],
         },
       ],
-      watchlists: DEFAULT_WATCHLISTS,
+      watchlists: DEFAULT_WATCHLISTS(),
       activeWatchlist: "Main",
       drawings: {},
       settings: {},
@@ -352,8 +343,9 @@ class App {
       f.waiting.push(then);
       return null;
     }
-    if (!/^YAHOO:[^^].*\.(NS|BO)$/.test(symbol))
-      return (this.figures[symbol] = { error: "Company figures are for NSE and BSE stocks" });
+    // Any stock on OpenWick's lists, in any country; indices, crypto and forex have no figures.
+    if (!/^(YAHOO|US|NSE|BSE):[^^=]+$/.test(symbol) || /=X$|-USD$/.test(symbol))
+      return (this.figures[symbol] = { error: "Company figures are for stocks" });
     const entry = (this.figures[symbol] = { loading: true, waiting: [then] });
     const done = (val) => {
       this.figures[symbol] = val;
@@ -361,7 +353,13 @@ class App {
     };
     api
       .get(`/api/company?id=${encodeURIComponent(symbol)}`)
-      .then((r) => done(r?.fin?.ann || r?.fin?.qtr ? { fin: r.fin, shares: r.shares } : { error: "No company figures for this stock yet" }))
+      .then((r) =>
+        done(
+          r?.kind !== "stock" ? { error: r?.error ? "Company figures are for stocks on OpenWick's lists" : "Company figures are for stocks" }
+            : r.fin?.ann || r.fin?.qtr ? { fin: r.fin, shares: r.shares, currency: r.currency || (r.country === "IN" || !r.country ? "INR" : null), pence: !!r.pence }
+              : { error: r.finPending ? "Company figures are still downloading; try again in a minute" : "No company figures for this stock yet" },
+        ),
+      )
       .catch((e) => done({ error: `Couldn't load company figures: ${e.message}` }));
     return null;
   }
@@ -398,7 +396,7 @@ class App {
   }
   newLayout() {
     const p = this.active?.cfg;
-    this.switchTo("1", [{ symbol: p?.symbol || "YAHOO:^NSEI", tf: "1D", type: "candles", indicators: [volumeIndicator()], compare: [] }], 0, null);
+    this.switchTo("1", [{ symbol: p?.symbol || (home() || HOME.US).chips[0][1], tf: "1D", type: "candles", indicators: [volumeIndicator()], compare: [] }], 0, null);
   }
   saveLayout() {
     const n = this.state.currentLayout;
@@ -409,7 +407,7 @@ class App {
   saveLayoutDialog({ rename = false } = {}) {
     const cur = this.state.currentLayout;
     const card = this.modal(rename ? "Rename layout" : "Save layout as", `<div class="form-grid">
-      <label class="field">Name<input id="layoutNameIn" placeholder="Intraday NIFTY" maxlength="40" autocomplete="off" value="${rename ? esc(cur) : ""}"></label>
+      <label class="field">Name<input id="layoutNameIn" placeholder="Intraday, Swing trades…" maxlength="40" autocomplete="off" value="${rename ? esc(cur) : ""}"></label>
       </div><p class="hint-text">${rename ? "" : `Saves ${this.panes.length === 1 ? "this chart" : `these ${this.panes.length} charts`}: symbols, intervals, chart types, indicators and compared symbols. Later changes are saved to it automatically. `}Drawings belong to each symbol, so they show on every layout with that symbol.</p>`,
       { foot: `<button class="btn primary" data-ok>${rename ? "Rename" : "Save"}</button>` });
     const input = card.querySelector("#layoutNameIn");

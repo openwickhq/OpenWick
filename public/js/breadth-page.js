@@ -7,6 +7,7 @@ import { country, home } from "./country.js";
 
 await mountSite("markets");
 const C = country(), H = home(), INDIA = C.code === "IN";
+$("#breadthMeta").textContent = `Worked out from the ${C.list} stocks in each index, for the indices whose members OpenWick knows. Click a row to see that index above.`;
 // Other countries: every index is broad market, so the group buttons aren't needed.
 if (!INDIA) $("#groups").classList.add("hidden");
 const MAIN = slugOf(C.list);
