@@ -197,6 +197,7 @@ class App {
       // The picked country's exchange time (IST for India, New York time for the US…).
       const ex = EXCHANGES[homeExchange()];
       $("#clock").textContent = `${new Date().toLocaleTimeString("en-GB", { timeZone: ex.tz, hour12: false })} ${ex.tzLabel === "IST" ? "IST" : ex.tzLabel}`;
+      $("#clock").title = `${ex.name} time (${ex.tzLabel === "IST" ? "India" : ex.tzLabel})`;
     };
     tick();
     setInterval(tick, 1000);
@@ -1210,7 +1211,7 @@ class App {
         row(check("nseHours", `Shade ${EXCHANGES[homeExchange()].name} hours on crypto and forex (intraday)`), "") +
         head("Crosshair") + row(check("syncCrosshair", "Sync crosshair across charts"), ""),
       events: head("On the chart") + row(check("corpActions", "Dividends and splits"), "") +
-        '<p class="st-note">Marked under the bar as D (dividend) and S (split), for NSE and BSE stocks.</p>',
+        '<p class="st-note">Marked under the bar as D (dividend) and S (split), for UK, Japanese, German, Hong Kong and Indian stocks (the US price feed doesn\'t list them).</p>',
       general: head("Data") + row('<span>Bars to load per chart</span>', `<input class="st-input" type="number" data-k="bars" min="200" max="20000" step="100" value="${Number(v.bars) || 3000}">`) +
         head("Drawing") + row('<span>After placing a drawing</span>', select("stayInDrawMode", [["false", "Back to cursor"], ["true", "Keep the tool"]])) +
         head("Markets") + row('<span>The markets you follow and your home market</span>', '<button class="btn" data-setup>Change…</button>') +

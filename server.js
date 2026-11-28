@@ -43,8 +43,8 @@ import { stockId, COUNTRIES } from "./public/lib/markets.js";
 // Screener data by market (also what screener alerts check).
 const SCREENS = {
   crypto: () => data.cryptoScreener(),
-  nse: () => data.nseScreener(),
-  indices: () => data.indicesScreener(),
+  nse: () => (touchIndia(), data.nseScreener()),
+  indices: () => (touchIndia(), data.indicesScreener()),
   crypto500: () => data.cryptoTop500(),
   // Each country outside India: its main list (us, gb, jp, de, hk) and its indices (us-indices…).
   ...Object.fromEntries(markets.CODES.flatMap((c) => [
@@ -52,6 +52,21 @@ const SCREENS = {
     [`${c.toLowerCase()}-indices`, () => data.countryIndices(c)],
   ])),
 };
+
+// India's company figures and logos are fetched at start only for people who follow India (or
+// already have them, or used OpenWick before the first-run setup existed). Anyone else gets them
+// the first time they open an India page, like every other country.
+function indiaWanted() {
+  if (Number.isFinite(refresh.ageDays())) return true;
+  const s = store.read("setup", null);
+  if (s) return s.home === "IN" || (s.countries || []).includes("IN");
+  return !!store.read("state", null)?.watchlists;
+}
+const bgLog = (m) => console.log(`  ${m}`);
+function touchIndia() {
+  refresh.ensure(bgLog);
+  logos.indiaNow(bgLog);
+}
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(ROOT, "public");
@@ -313,6 +328,7 @@ async function handle(req, res) {
         if (!out.some((x) => x.members.length >= l.items.length)) out.unshift({ symbol: "", name: l.list, members: l.items.map((x) => stockId(c, x.s)), all: true });
         return send(res, 200, out);
       }
+      touchIndia();
       return send(res, 200, INDICES.items.filter((x) => x.mem?.length).map((x) => ({ symbol: `YAHOO:${x.y}`, name: x.n, members: x.mem })));
     }
     // The countries outside India: when each was last opened, and its company figures' state.
@@ -370,6 +386,8 @@ async function handle(req, res) {
     if (p === "/api/data-refresh" && req.method === "POST")
       return send(res, 200, { started: refresh.refreshNow((m) => console.log(m)), ...refresh.status });
     if (p === "/api/company" || p === "/api/company/live") {
+      const found = company.find(q.id);
+      if (found && !found.code) touchIndia(); // an Indian company or index page
       const out = p === "/api/company" ? company.page(q.id) : await company.live(q.id);
       if (!out) throw httpError(404, `No stock or index called ${String(q.id || "").slice(0, 40)} on OpenWick's lists`);
       return send(res, 200, out);
@@ -508,6 +526,7 @@ async function handle(req, res) {
         if (typeof b.crypto === "boolean") next.crypto = b.crypto;
         next.updated = new Date().toISOString();
         store.write("setup", next);
+        if (next.home === "IN" || next.countries?.includes("IN")) touchIndia();
         return send(res, 200, { ok: true });
       }
     }
@@ -702,8 +721,8 @@ if (isMain) {
   const url = `http://localhost:${port}`;
   alerts.start();
   if (!process.env.OW_OFFLINE) screenAlerts.start((u) => SCREENS[u]());
-  refresh.startAutoRefresh((m) => console.log(`  ${m}`));
-  logos.startAutoDownload((m) => console.log(`  ${m}`));
+  refresh.startAutoRefresh(bgLog, indiaWanted);
+  logos.startAutoDownload(bgLog, indiaWanted);
   markets.setHooks({
     fx: async (pairs) => Object.fromEntries(Object.entries(await data.yahooSpark(pairs)).map(([k, v]) => [k, v.price])),
     logos: (c) => logos.countryNow(c, (m) => console.log(`  ${m}`)),

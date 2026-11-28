@@ -135,7 +135,7 @@ if not exist "%OW_NODE%" set "OW_NODE=node"
       $lnk.Arguments = "start"
       $lnk.WorkingDirectory = $App
       $lnk.WindowStyle = 7   # minimised: the window closes on its own once the app is up
-      $lnk.Description = "Charts for Indian stocks, indices and crypto"
+      $lnk.Description = "Charts for stocks, indices and crypto"
       $lnk.Save()
     }
     Write-Host "Added $AppName to the Start menu and the desktop."

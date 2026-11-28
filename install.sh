@@ -165,7 +165,7 @@ if [ "$(uname -s)" = "Linux" ]; then
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
-Comment=Charts for Indian stocks, indices and crypto
+Comment=Charts for stocks, indices and crypto
 Exec=$BIN_DIR/$APP_ID
 Icon=$APP/public/img/logo.svg
 Terminal=false

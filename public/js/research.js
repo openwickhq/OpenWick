@@ -183,9 +183,9 @@ export async function renderFinancials(el, app, opts = {}) {
     tab = opts.tab || "income";
   const crypto = ["BINANCE", "COINBASE", "KRAKEN", "BYBIT", "BLOFIN"].includes(exchange(sym));
   if (!crypto) {
-    // Indian companies: saved yearly and quarterly results, the same view as the stock page.
+    // Companies in any of the six countries: yearly and quarterly results, as on the stock page.
     let info = null;
-    if (exchange(sym) === "YAHOO") {
+    if (["YAHOO", "US", "NSE", "BSE"].includes(exchange(sym)) && !/=X$|-USD$/.test(sym)) {
       el.innerHTML = '<div class="pad hint-text">Loading financials…</div>';
       info = await api.get(`/api/company?id=${encodeURIComponent(sym)}`).catch(() => null);
       if (app.active?.cfg.symbol !== sym || !el.isConnected) return;
@@ -197,7 +197,7 @@ export async function renderFinancials(el, app, opts = {}) {
     }
     el.innerHTML = info?.kind === "index"
       ? `<div class="pad hint-text">${esc(info.name)} is an index, so it has no financial statements. <a href="/symbol/${encodeURIComponent(info.slug)}" target="_blank">Open its page</a> for its ${info.members ? `${info.members} member companies and their weights` : "figures"}.</div>`
-      : `<div class="pad hint-text">Financials are for NIFTY 500 companies (open RELIANCE, TCS…) and for crypto (BTCUSDT, SOLUSDT…).</div>`;
+      : `<div class="pad hint-text">Financials are for the stocks on OpenWick's lists in all six countries (AAPL, SHEL, 7203, SAP, 0700, RELIANCE…) and for crypto (BTCUSDT, SOLUSDT…).</div>`;
     return;
   }
   el.innerHTML = '<div class="pad hint-text">Loading financials…</div>';

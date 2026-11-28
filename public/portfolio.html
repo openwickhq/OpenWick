@@ -30,10 +30,10 @@
         <div class="pf-how">
           <h3>Where to get the file</h3>
           <ol>
-            <li><b>Kite</b> (web): Holdings → the download icon above the list → CSV.</li>
-            <li><b>Console</b>: Portfolio → Holdings → Download (Excel works too).</li>
-            <li><b>Console tradebook</b>: Reports → Tradebook → Equity → pick dates from your first trade → Download CSV. Holdings are then worked out from your trades, with realised profit.</li>
-            <li><b>Any other broker or country</b>: a CSV with <code>Symbol</code>, <code>Quantity</code> and <code>Average price</code> columns. Write other countries' shares with their exchange: <code>NASDAQ:AAPL</code>, <code>SHEL.L</code>, <code>7203.T</code>, <code>SAP.DE</code>, <code>0700.HK</code>. Plain symbols count as NSE.</li>
+            <li><b>Any broker, any country</b>: a CSV with <code>Symbol</code>, <code>Quantity</code> and <code>Average price</code> columns. Write other countries' shares with their exchange: <code>NASDAQ:AAPL</code>, <code>SHEL.L</code>, <code>7203.T</code>, <code>SAP.DE</code>, <code>0700.HK</code>. Plain symbols count as NSE.</li>
+            <li><b>Zerodha Kite</b> (web): Holdings → the download icon above the list → CSV.</li>
+            <li><b>Zerodha Console</b>: Portfolio → Holdings → Download (Excel works too).</li>
+            <li><b>Zerodha Console tradebook</b>: Reports → Tradebook → Equity → pick dates from your first trade → Download CSV. Holdings are then worked out from your trades, with realised profit.</li>
           </ol>
           <p class="muted">The file is read in your browser. Only the stock symbols, quantities and average prices are kept, in <code>data/portfolio.json</code> on this computer. Nothing is sent to your broker or anywhere else.</p>
           <p><button class="linklike" id="manualBtn">Or type your holdings in by hand</button></p>
@@ -48,7 +48,7 @@
             <div class="sc-wrap"><table class="sc" id="table"></table></div>
           </div>
           <div class="pf-side">
-            <div class="panel"><h3>By sector <small class="muted" id="benchNote">you vs NIFTY 50</small></h3><div id="sectors" class="pf-sectors"></div></div>
+            <div class="panel"><h3>By sector <small class="muted" id="benchNote"></small></h3><div id="sectors" class="pf-sectors"></div></div>
           </div>
         </div>
         <section class="block">

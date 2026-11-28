@@ -233,7 +233,7 @@ export function initPanels(app) {
       const f = inp.files[0];
       if (!f) return;
       const { list, skipped } = importList(await f.text());
-      if (!symbolsOf(list).length) return app.toast(`No Indian, crypto or forex symbols found in ${f.name}.`, "err");
+      if (!symbolsOf(list).length) return app.toast(`No symbols OpenWick knows were found in ${f.name}.`, "err");
       let name = f.name.replace(/\.[^.]+$/, "").slice(0, 50) || "Imported";
       for (let i = 2; app.state.watchlists[name]; i++) name = `${name.replace(/ \d+$/, "")} ${i}`;
       app.state.watchlists[name] = list;
@@ -629,7 +629,7 @@ export function initPanels(app) {
     }
     const box = $("#alScreens");
     if (!box) return;
-    const MK = { nse: "NIFTY 500", indices: "Indian indices", crypto500: "Top 500 coins", crypto: "Binance pairs" };
+    const MK = { nse: "NIFTY 500", indices: "India indices", crypto500: "Top 500 coins", crypto: "Binance pairs", us: "S&P 500 + Nasdaq-100", gb: "FTSE 350", jp: "Nikkei 225", de: "DAX and MDAX", hk: "Hang Seng Index" };
     box.innerHTML = `<h4 class="pad" style="margin:0;padding-bottom:0">Screener alerts</h4>${list.map((a) =>
       `<div class="card" data-sid="${esc(a.id)}"><div class="top"><div><b>${esc(a.name)}</b> <span class="muted">${esc(MK[a.universe] || a.universe)}</span><div class="sub">${a.active ? "Active" : "Paused"} · alerts when a new one matches${a.matching != null ? ` · ${a.matching} matching` : ""}${a.webhook ? " · webhook" : ""}${a.fired ? ` · fired ${a.fired}x` : ""}</div></div><div class="row-flex" style="flex-wrap:nowrap"><button class="btn small" data-sact="toggle">${a.active ? "Pause" : "Resume"}</button><button class="btn small danger" data-sact="del">Delete</button></div></div></div>`).join("") ||
       '<div class="pad hint-text">None yet. Set filters on the <a href="/screener" target="_blank">Screener</a> and press “Alert on new matches”.</div>'}`;

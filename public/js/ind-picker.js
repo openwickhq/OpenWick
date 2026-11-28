@@ -100,7 +100,7 @@ export function openIndicatorPicker(app) {
     } else if (view.sec === "fund") {
       const t = view.tab.fund;
       rows = items.fund.filter((it) => t === "All" || it.meta === t);
-      note.innerHTML = "For NSE and BSE stocks, from each company's yearly and quarterly results. Each opens in its own pane under the chart.";
+      note.innerHTML = "For stocks in all six countries, from each company's yearly and quarterly results, in its own currency. Each opens in its own pane under the chart.";
     } else {
       const t = view.tab.tech;
       rows = items[t] || [];
