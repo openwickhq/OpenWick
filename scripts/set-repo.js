@@ -12,7 +12,7 @@ if (!/^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/.test(slug)) {
   process.exit(1);
 }
 let n = 0;
-for (const f of ["install.sh", "install.ps1", "README.md", "electron/main.cjs"]) {
+for (const f of ["install.sh", "install.ps1", "README.md", "electron/app.cjs"]) {
   const p = path.join(root, f);
   const s = fs.readFileSync(p, "utf8");
   const out = s.split("OWNER/openwick").join(slug);

@@ -16,6 +16,9 @@
   "engines": {
     "node": ">=18"
   },
+  "desktop": {
+    "electron": 45
+  },
   "scripts": {
     "start": "node server.js --open",
     "serve": "node server.js",

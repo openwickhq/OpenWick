@@ -45,7 +45,10 @@ Every country gets the same pages: movers and breadth, the screener with company
 | Mac with an Intel chip | `OpenWick-…-mac-x64.dmg` |
 | Linux | `OpenWick-…-linux-x86_64.AppImage`, or `.deb` for Ubuntu and Debian |
 
-It installs for your user only, with no admin rights. The app checks for a new version when it starts and offers to open the download page; your charts and settings are kept when you install over it. Your data lives in your user folder (Help → Open data folder), not in the app's folder.
+It installs for your user only, with no admin rights.
+
+**Updates install themselves**, on Windows, macOS and Linux. When a new version is out, the app downloads just OpenWick's own files (about 7 MB, checked against the release's SHA-256) in the background and asks to restart: **Restart now**, **Later** (used the next time you open it), or **Skip this version**. Restarting takes a few seconds and keeps your charts and settings. The installed app is never changed; updates go into your user folder (`updates/` next to your data), and if a new version ever fails to start, the next start goes back to the one before. Only a release that needs a newer desktop runtime asks you to download the installer again. To go back to an older version, install that release's installer: it clears the downloaded updates. Settings → General → Check for updates looks straight away.
+Your data lives in your user folder (Help → Open data folder), not in the app's folder.
 
 The installers aren't code-signed yet, so the first time:
 - **Windows** may show "Windows protected your PC". Click **More info**, then **Run anyway**.
@@ -247,7 +250,7 @@ Add `--listen` to either one to print alerts as they fire.
 
 ## Building the desktop app
 
-The desktop app (`electron/main.cjs`) is a window around the same local server: it starts `server.js` with Electron's built-in Node and shows the app. `npm run desktop` runs it from a source copy (it downloads Electron the first time, about 100 MB, into the npm cache). `npm run desktop:build` makes the installers for the computer you're on, in `dist/desktop`. Releases build all of them on GitHub (`.github/workflows/release.yml`); the build settings are in `electron-builder.yml`.
+The desktop app (`electron/main.cjs` starts `electron/app.cjs`, or a newer version downloaded by `electron/updater.cjs`) is a window around the same local server: it starts `server.js` with Electron's built-in Node and shows the app. `npm run desktop` runs it from a source copy (it downloads Electron the first time, about 100 MB, into the npm cache). `npm run desktop:build` makes the installers for the computer you're on, in `dist/desktop`. Releases build all of them on GitHub (`.github/workflows/release.yml`); the build settings are in `electron-builder.yml`.
 
 ## Licence and credits
 
