@@ -1,5 +1,5 @@
 import { EXCHANGES } from "../lib/markets.js";
-import { homeExchange, home, HOME } from "./country.js";
+import { homeExchange, home, HOME, starterWatchlist } from "./country.js";
 import { api, download, esc, fmtPrice, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
 import { TOOLS, TOOL_BY_ID, TOOL_GROUPS } from "./drawings.js";
@@ -55,9 +55,9 @@ const RANGES = [
   ["All", "1M", "all"],
 ];
 const LAYOUTS = { 1: 1, "2v": 2, "2h": 2, 3: 3, 4: 4, 6: 6, 8: 8, 16: 16 };
-// A first run's watchlist: the main index, big stocks, Bitcoin, Ether and the currency of the
-// country picked in the top bar (guessed from the time zone on a first visit).
-const DEFAULT_WATCHLISTS = () => ({ Main: [...new Set((home() || HOME.US).chips.map(([, s]) => s))] });
+// A first run's watchlist, for the country picked in the top bar (guessed from the time zone on a
+// first visit): its indices, its five biggest stocks, crypto, its currency and gold (country.js).
+const DEFAULT_WATCHLISTS = () => ({ Main: starterWatchlist() });
 
 // Timeframes an indicator can be worked out on (Inputs → Timeframe), and the ones it can't.
 const MTF_CHOICES = ["3m", "5m", "15m", "30m", "45m", "1h", "2h", "3h", "4h", "1D", "1W", "1M"];
@@ -88,7 +88,8 @@ class App {
       layout: "1",
       panes: [
         {
-          symbol: "BINANCE:BTCUSDT",
+          // A first run opens on the country's main index, the top of its starter watchlist.
+          symbol: starterWatchlist()[0],
           tf: "1D",
           type: "candles",
           indicators: [

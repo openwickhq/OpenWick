@@ -93,4 +93,23 @@ export const HOME = {
     placeholder: "Tencent, 0700, Hang Seng, BTC…", calendar: "China calendar", calendarNote: "China's data, the PBoC, HSI expiries",
   },
 };
+// A new user's first watchlist, for the country picked (or guessed) on their first visit: the
+// main indices, the five biggest companies by market cap (from OpenWick's own figures, November
+// 2026), then Bitcoin, Ether, the home currency and gold. The watchlist groups them into Indices,
+// Stocks, Crypto and Forex by itself, so anything added later lands in the right group.
+const Y = (s) => `YAHOO:${s}`;
+const EXTRA = (fx) => ["BINANCE:BTCUSDT", "BINANCE:ETHUSDT", fx, "FX:XAUUSD"];
+export const STARTER = {
+  IN: { indices: ["^NSEI", "^BSESN", "^NSEBANK", "^CNXIT", "^INDIAVIX"].map(Y), stocks: ["RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "ICICIBANK.NS", "SBIN.NS"].map(Y), extra: EXTRA("FX:USDINR") },
+  US: { indices: ["^GSPC", "^IXIC", "^DJI", "^RUT", "^VIX"].map(Y), stocks: ["US:AAPL", "US:MSFT", "US:NVDA", "US:GOOGL", "US:AMZN"], extra: EXTRA("FX:EURUSD") },
+  GB: { indices: ["^FTSE", "^FTMC", "^FTAS"].map(Y), stocks: ["AZN.L", "HSBA.L", "SHEL.L", "ULVR.L", "RR.L"].map(Y), extra: EXTRA("FX:GBPUSD") },
+  JP: { indices: ["^N225", "1306.T"].map(Y), stocks: ["7203.T", "8306.T", "9983.T", "6758.T", "6098.T"].map(Y), extra: EXTRA("FX:USDJPY") },
+  DE: { indices: ["^GDAXI", "^MDAXI", "^SDAXI", "^TECDAX"].map(Y), stocks: ["SAP.DE", "SIE.DE", "ALV.DE", "DTE.DE", "ENR.DE"].map(Y), extra: EXTRA("FX:EURUSD") },
+  HK: { indices: ["^HSI", "HSTECH.HK", "^HSCE"].map(Y), stocks: ["0700.HK", "1398.HK", "0939.HK", "0005.HK", "3988.HK"].map(Y), extra: EXTRA("FX:USDHKD") },
+};
+export const starterWatchlist = (code = countryCode()) => {
+  const s = STARTER[code] || STARTER.US;
+  return [...s.indices, ...s.stocks, ...s.extra];
+};
+
 export const home = () => HOME[countryCode()];

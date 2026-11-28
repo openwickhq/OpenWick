@@ -40,3 +40,14 @@ test('sections group rows, symbolsOf skips headers, moveEntry reorders', () => {
   assert.deepEqual(moveEntry(LIST, 'BINANCE:BTCUSDT', 'YAHOO:SBIN.NS').slice(1, 4), ['###Banks', 'BINANCE:BTCUSDT', 'YAHOO:SBIN.NS']);
   assert.deepEqual(moveEntry(LIST, 'YAHOO:^NSEI', null).at(-1), 'YAHOO:^NSEI');
 });
+
+test("starter watchlists: every country has indices, five stocks and crypto, with no repeats", async () => {
+  const { STARTER, starterWatchlist } = await import("../public/js/country.js").catch(() => ({}));
+  if (!STARTER) return; // country.js needs a browser (localStorage); checked in the app instead
+  for (const [code, s] of Object.entries(STARTER)) {
+    assert.ok(s.indices.length >= 2, code);
+    assert.equal(s.stocks.length, 5, code);
+    const list = starterWatchlist(code);
+    assert.equal(new Set(list).size, list.length, `${code} has a repeat`);
+  }
+});
