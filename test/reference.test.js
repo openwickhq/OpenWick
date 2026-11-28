@@ -548,6 +548,9 @@ const REF = {
   rsibars: null, // candle colours, checked in indicators.test.js
   vpvr: null, // drawn by the chart, checked in the volume profile test below
   markov: null, // checked in the Markov regime test below
+  rvol: null, // no single TradingView formula; checked in auto-tools.test.js
+  autofib: null, // levels on zigzag swings; checked in auto-tools.test.js
+  autotrend: null, // lines through pivots; checked in auto-tools.test.js
   avwap: null, // checked in the anchored VWAP test below
   svp: null, // drawn by the chart, checked in the session volume profile test below
   pdhl: () => ({

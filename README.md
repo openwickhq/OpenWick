@@ -1,6 +1,6 @@
 # OpenWick
 
-A free trading terminal for stocks, indices and crypto that runs on your own computer, for six markets: the USA, the UK, Germany, Japan, Hong Kong and India. Charts, 89 indicators, 25 drawing tools, alerts, a screener with alerts, a heatmap, market movers and breadth for every index, trading notes, a portfolio page, company financials, economic calendars, market and crypto news, seasonals, a strategy tester with quant checks, bar replay and paper trading. No account, no subscription, no ads, no limit on indicators per chart.
+A free trading terminal for stocks, indices and crypto that runs on your own computer, for six markets: the USA, the UK, Germany, Japan, Hong Kong and India. Charts, 92 indicators (any of them on a higher timeframe), 25 drawing tools, alerts, a screener with alerts, a heatmap, market movers and breadth for every index, trading notes, a portfolio page, company financials, economic calendars, market and crypto news, seasonals, a strategy tester with quant checks, bar replay and paper trading. No account, no subscription, no ads, no limit on indicators per chart.
 
 It's one small Node.js app with no dependencies. Your watchlists, drawings, alerts and paper account are plain files in a data folder on your machine.
 
@@ -91,7 +91,7 @@ Prefer to read a script before running it? Download [`install.sh`](install.sh) o
 | Spreads and ratios | Type `BTCUSDT/ETHUSDT`, `HDFCBANK - ICICIBANK` or `RELIANCE/NIFTY` to chart one symbol against another |
 | Any timeframe | 1m to 1M plus custom ones like 7m, 2h, 3D, 2W. 1-second bars on Binance crypto |
 | Up to 16 charts at once | 1, 2, 3, 4, 6, 8 or 16 charts, with symbol sync and crosshair sync |
-| 89 built-in indicators, no cap per chart | Moving averages, RSI, MACD, Bollinger, standard deviation channel, Ichimoku, Supertrend, VWAP and anchored VWAP, session and visible-range volume profiles, ADX, pivots, volume tools, candlestick patterns and more. Formulas follow the Pine Script reference |
+| 92 built-in indicators, no cap per chart | Moving averages, RSI and MACD (both with automatic divergences), relative volume, auto Fibonacci retracement, auto trendlines, Bollinger, standard deviation channel, Ichimoku, Supertrend, VWAP with standard-deviation bands, anchored VWAP, session and visible-range volume profiles, ADX, pivots, volume tools, candlestick patterns and more. Formulas follow the Pine Script reference. Any indicator can be worked out on a higher timeframe (Settings → Inputs → Timeframe: the daily 200 EMA on a 15-minute chart); its values appear once each higher-timeframe bar has closed, so history never peeks ahead |
 | Indicators on indicators, any timeframe | Build one indicator on another's output (an SMA of RSI), or show a higher timeframe's value (daily RSI on a 1h chart) without look-ahead |
 | Volume profile | Visible-range profile with point of control and value area |
 | Your own indicators and strategies | The full-screen Script editor (Indicators → My scripts, or "Write in code" in the Strategy tester): JavaScript with highlighting, a console that names an error's line, six templates, and a live preview on the active chart's bars, with a strategy's backtest. Or ask your AI agent to add a file to `custom/` (format: `docs/custom-indicators.md`) |

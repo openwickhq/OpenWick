@@ -59,6 +59,10 @@ const LAYOUTS = { 1: 1, "2v": 2, "2h": 2, 3: 3, 4: 4, 6: 6, 8: 8, 16: 16 };
 // country picked in the top bar (guessed from the time zone on a first visit).
 const DEFAULT_WATCHLISTS = () => ({ Main: [...new Set((home() || HOME.US).chips.map(([, s]) => s))] });
 
+// Timeframes an indicator can be worked out on (Inputs → Timeframe), and the ones it can't.
+const MTF_CHOICES = ["3m", "5m", "15m", "30m", "45m", "1h", "2h", "3h", "4h", "1D", "1W", "1M"];
+const NO_MTF = new Set(["vpvr", "svp", "volume"]);
+
 // The Volume every chart starts with; its moving average is there but hidden (Style tab turns it on).
 const volumeIndicator = () => ({ uid: newUid(), id: "volume", params: {}, style: { off: { ma: true } } });
 
@@ -1017,13 +1021,19 @@ class App {
         }
         return row(esc(i.label), `<input class="st-input" data-k="${i.key}" data-type="${i.type}" type="number" step="${i.type === "int" ? 1 : "any"}" value="${v}">`);
       }).join("");
-      return (fields || '<p class="st-note">This indicator has no inputs.</p>') +
-        row("Timeframe", `<select class="st-select" data-tf>${["", "5m", "15m", "1h", "4h", "1D", "1W", "1M"].map((t) => `<option value="${t}" ${(ind.tf || "") === t ? "selected" : ""}>${t || `Chart (${pane.cfg.tf})`}</option>`).join("")}</select>`) +
-        '<p class="st-note">A higher timeframe shows its value once each of its bars has closed, so history never peeks ahead.</p>';
+      // Timeframe first: any indicator can be worked out on a higher timeframe (the daily 200 EMA
+      // on a 15-minute chart). Not for company figures or volume profiles, which have their own.
+      const chartSec = parseTf(pane.cfg.tf).seconds;
+      const tfs = MTF_CHOICES.filter((t) => parseTf(t).seconds > chartSec || t === ind.tf);
+      const tfRow = def.fundamental || NO_MTF.has(def.id)
+        ? ""
+        : row("Timeframe", `<select class="st-select" data-tf><option value="">Same as chart (${esc(pane.cfg.tf)})</option>${tfs.map((t) => `<option value="${t}" ${ind.tf === t ? "selected" : ""}>${esc(tfName(t))}</option>`).join("")}</select>`) +
+          '<p class="st-note">On a higher timeframe each value shows once that timeframe\'s bar has closed, so history never peeks ahead; the newest bar updates live.</p>';
+      return tfRow + (fields || '<p class="st-note">This indicator has no inputs.</p>');
     };
     const style = () => {
       const st = ind.style || {};
-      const lines = def.outputs.map((o) => {
+      const lines = def.outputs.filter((o) => !o.hidden).map((o) => {
         const color = (ind.colors?.[o.key] || o.color).slice(0, 7);
         const plots = o.plot !== false;
         const line = o.kind !== "histogram" && !o.dots && plots;

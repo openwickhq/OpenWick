@@ -3,6 +3,8 @@
 // TradingView's built-ins: RMA-based RSI/ATR/ADX, SMA-seeded EMA, population stdev.
 // Every series is a plain array the same length as the bars; missing values are NaN.
 
+import { divergences, relativeVolume, autoFib, autoTrendlines, FIB_LEVELS, FIB_EXT } from "./auto-tools.js";
+
 const N = NaN;
 const isNum = (v) => typeof v === "number" && !Number.isNaN(v);
 
@@ -640,6 +642,24 @@ function maDef(id, name, fn, extraInputs = []) {
   };
 }
 
+// Outputs marked `optional` stay empty until a setting turns them on (divergences, extra bands,
+// Fibonacci extensions). `hidden` ones are never drawn: signals for alerts and strategies.
+// Divergences, an option on RSI and MACD (auto-tools.js): lines on the oscillator between the two
+// pivots, arrows on the price chart, and a signal for alerts and strategies.
+const DIV_INPUT = { key: "divergence", label: "Divergences", type: "select", options: ["Off", "Regular", "Regular and hidden"], default: "Off" };
+const DIV_OUTPUTS = [
+  line("bullDiv", "Bullish divergence", "#18a57b", { lineWidth: 2, optional: true }),
+  line("bearDiv", "Bearish divergence", "#ef4f5e", { lineWidth: 2, optional: true }),
+  line("div", "Divergence (1 bull, -1 bear, ±2 hidden)", "#9e9e9e", { hidden: true }),
+];
+function divergenceOutputs(bars, osc, mode, name) {
+  if (!mode || mode === "Off") return { bullDiv: bars.map(() => N), bearDiv: bars.map(() => N), div: bars.map(() => 0) };
+  const d = divergences(bars, osc, { hidden: mode === "Regular and hidden", name });
+  return { bullDiv: d.bull, bearDiv: d.bear, div: d.signal, markers: d.markers };
+}
+const FIB_COLORS = { 0: "#9e9e9e", 0.236: "#ef4f5e", 0.382: "#e5a43a", 0.5: "#18a57b", 0.618: "#26a69a", 0.786: "#f7c600", 1: "#9e9e9e", 1.272: "#ff9800", 1.618: "#e91e63", 2.618: "#e91e63" };
+const fibKey = (r) => `f${String(r).replace(".", "_")}`;
+
 export const INDICATORS = [
   maDef("sma", "Moving Average (SMA)", (s, n) => sma(s, n)),
   maDef("ema", "Exponential Moving Average (EMA)", (s, n) => ema(s, n)),
@@ -782,15 +802,34 @@ export const INDICATORS = [
         options: ["day", "week", "month", "year"],
         default: "day",
       },
+      // Bands: volume-weighted standard deviations of the price around the VWAP, reset with it.
+      { key: "bands", label: "Bands (standard deviations)", type: "select", options: ["Off", "1", "1 and 2", "1, 2 and 3"], default: "1" },
+      { key: "mult1", label: "Band 1 ×", type: "float", default: 1 },
+      { key: "mult2", label: "Band 2 ×", type: "float", default: 2 },
+      { key: "mult3", label: "Band 3 ×", type: "float", default: 3 },
     ],
-    outputs: [line("value", "VWAP", "#2962ff", { lineWidth: 2 })],
+    legendInputs: ["anchor"],
+    outputs: [
+      line("value", "VWAP", "#2962ff", { lineWidth: 2 }),
+      line("upper1", "Upper band 1", "#18a57b"),
+      line("lower1", "Lower band 1", "#18a57b"),
+      line("upper2", "Upper band 2", "#e5a43a", { optional: true }),
+      line("lower2", "Lower band 2", "#e5a43a", { optional: true }),
+      line("upper3", "Upper band 3", "#ef4f5e", { optional: true }),
+      line("lower3", "Lower band 3", "#ef4f5e", { optional: true }),
+    ],
     calc: (bars, p) => {
       const s = source(bars, p.source);
+      const nb = { Off: 0, 1: 1, "1 and 2": 2, "1, 2 and 3": 3 }[p.bands ?? "1"] ?? 1;
+      const mult = [p.mult1 ?? 1, p.mult2 ?? 2, p.mult3 ?? 3];
       let key = null,
         start = 0,
         pv = 0,
+        pv2 = 0,
         v = 0;
-      const breaks = new Array(bars.length).fill(false);
+      const n = bars.length;
+      const breaks = new Array(n).fill(false);
+      const out = { upper1: [], lower1: [], upper2: [], lower2: [], upper3: [], lower3: [] };
       const value = bars.map((b, i) => {
         const k = periodKey(b.time, p.anchor || "day");
         if (k !== key) {
@@ -798,14 +837,23 @@ export const INDICATORS = [
           key = k;
           start = i;
           pv = 0;
+          pv2 = 0;
           v = 0;
         }
         const vol = b.volume || 0;
         pv += s[i] * vol;
+        pv2 += s[i] * s[i] * vol;
         v += vol;
-        return v ? pv / v : s[i];
+        const vw = v ? pv / v : s[i];
+        const sd = v ? Math.sqrt(Math.max(0, pv2 / v - vw * vw)) : 0;
+        for (let j = 1; j <= 3; j++) {
+          const on = j <= nb;
+          out[`upper${j}`].push(on ? vw + mult[j - 1] * sd : N);
+          out[`lower${j}`].push(on ? vw - mult[j - 1] * sd : N);
+        }
+        return vw;
       });
-      return { value, breaks };
+      return { value, ...out, breaks };
     },
   },
   {
@@ -1222,10 +1270,13 @@ export const INDICATORS = [
         default: 14,
         min: 0,
       },
+      DIV_INPUT,
     ],
+    legendInputs: ["length", "maLength"],
     outputs: [
       line("value", "RSI", "#7e57c2"),
       line("ma", "RSI-based MA", "#f7c600", { lineWidth: 1 }),
+      ...DIV_OUTPUTS,
     ],
     levels: [30, 50, 70],
     calc: (bars, p) => {
@@ -1233,6 +1284,7 @@ export const INDICATORS = [
       return {
         value,
         ma: p.maLength > 0 ? sma(value, p.maLength) : value.map(() => N),
+        ...divergenceOutputs(bars, value, p.divergence, "RSI"),
       };
     },
   },
@@ -1351,14 +1403,18 @@ export const INDICATORS = [
       { key: "slow", label: "Slow length", type: "int", default: 26 },
       { key: "signal", label: "Signal smoothing", type: "int", default: 9 },
       src,
+      DIV_INPUT,
     ],
+    legendInputs: ["fast", "slow", "signal"],
     outputs: [
       hist("hist", "Histogram", "#26a69a"),
       line("macd", "MACD", "#2962ff"),
       line("signal", "Signal", "#ff6d00"),
+      ...DIV_OUTPUTS,
     ],
     calc: (bars, p) => {
-      return macdFrom(source(bars, p.source), p);
+      const r = macdFrom(source(bars, p.source), p);
+      return { ...r, ...divergenceOutputs(bars, r.macd, p.divergence, "MACD") };
     },
   },
   {
@@ -2241,6 +2297,82 @@ export const INDICATORS = [
     calc: (bars, p) => ({ value: zigzagOf(bars, p.deviation, p.depth) }),
   },
   {
+    // The last swing's Fibonacci levels, redrawn as price makes new swings (zigzag pivots). The
+    // deviation that makes a swing defaults to 3 × the average true range, in % of the price.
+    id: "autofib",
+    name: "Auto Fib Retracement",
+    group: "Trend",
+    overlay: true,
+    inputs: [
+      { key: "deviation", label: "Swing size (%, 0 = automatic from ATR)", type: "float", default: 0, min: 0 },
+      { key: "depth", label: "Depth (bars)", type: "int", default: 10, min: 1 },
+      { key: "reverse", label: "Reverse", type: "bool", default: false },
+      { key: "extensions", label: "Extensions (1.272, 1.618, 2.618)", type: "bool", default: false },
+    ],
+    legendInputs: [],
+    outputs: [...FIB_LEVELS, ...FIB_EXT].map((r) => line(fibKey(r), String(r), FIB_COLORS[r], { lineWidth: 1, scaleLabel: true, optional: FIB_EXT.includes(r) })),
+    calc: (bars, p) => {
+      const n = bars.length;
+      let dev = p.deviation;
+      if (!(dev > 0)) {
+        // 3 × ATR(10) as a % of the close, averaged over the last 100 bars.
+        const a = atr(bars, 10);
+        const pct = [];
+        for (let i = Math.max(10, n - 100); i < n; i++) if (Number.isFinite(a[i]) && bars[i].close) pct.push((a[i] / bars[i].close) * 100);
+        dev = pct.length ? Math.max(0.1, (3 * pct.reduce((x, y) => x + y, 0)) / pct.length) : 5;
+      }
+      const { out } = autoFib(bars, zigzagPivots(bars, dev, p.depth ?? 10), { reverse: !!p.reverse, extensions: !!p.extensions });
+      return Object.fromEntries([...FIB_LEVELS, ...FIB_EXT].map((r) => [fibKey(r), out[r]]));
+    },
+  },
+  {
+    // Support and resistance lines through recent pivots, continued until a close breaks them.
+    id: "autotrend",
+    name: "Auto Trendlines",
+    group: "Trend",
+    overlay: true,
+    inputs: [
+      { key: "left", label: "Pivot bars to the left", type: "int", default: 10, min: 1 },
+      { key: "right", label: "Pivot bars to the right", type: "int", default: 10, min: 1 },
+      { key: "breaks", label: "Mark breaks", type: "bool", default: true },
+    ],
+    outputs: [
+      line("resistance", "Resistance", "#ef4f5e", { lineWidth: 2 }),
+      line("support", "Support", "#18a57b", { lineWidth: 2 }),
+      line("break", "Break (1 up through resistance, -1 down through support)", "#9e9e9e", { hidden: true }),
+    ],
+    calc: (bars, p) => {
+      const t = autoTrendlines(bars, { left: p.left ?? 10, right: p.right ?? 10 });
+      return { resistance: t.resistance, support: t.support, break: t.signal, ...(p.breaks === false ? {} : { markers: t.markers }) };
+    },
+  },
+  {
+    // Relative volume: 2.0 means twice the usual. Intraday it compares the session's volume so far
+    // with the usual volume by the same time of day; on daily and longer bars, each bar with the
+    // average of the bars before it.
+    id: "rvol",
+    name: "Relative Volume (RVOL)",
+    group: "Volume",
+    overlay: false,
+    inputs: [
+      { key: "length", label: "Sessions or bars to average", type: "int", default: 10, min: 1 },
+      { key: "mode", label: "Compare", type: "select", options: ["Automatic", "Each bar", "At time of day"], default: "Automatic" },
+      { key: "high", label: "Highlight from", type: "float", default: 2 },
+    ],
+    legendInputs: ["length"],
+    outputs: [hist("value", "Relative volume", "#787b86")],
+    levels: [1],
+    calc: (bars, p) => {
+      const step = bars.length > 1 ? bars[bars.length - 1].time - bars[bars.length - 2].time : 86400;
+      const intraday = step < 86400 && bars.slice(-50).some((b, i, a) => i && b.time - a[i - 1].time < 86400);
+      const mode = p.mode === "At time of day" || (p.mode !== "Each bar" && intraday) ? "time" : "bar";
+      const value = relativeVolume(bars, p.length ?? 10, mode, (t) => periodKey(t, "day"));
+      const hi = p.high ?? 2;
+      const colors = value.map((v) => (!Number.isFinite(v) ? undefined : v >= hi ? "#e5a43a" : v >= 1 ? "#18a57b" : "#5d606b"));
+      return { value, colors };
+    },
+  },
+  {
     // Like other charting apps: at the bottom of the price chart with its own scale (or in its own
     // pane), on every new chart, and removable like any indicator.
     id: "volume",
@@ -2786,8 +2918,19 @@ function vstopOf(bars, length, factor) {
 // price before that happens means the pivot was not the end of its swing, so it moves to the new extreme.
 // The line runs straight between pivots and the unconfirmed last leg ends at its latest extreme.
 function zigzagOf(bars, deviation, depth) {
+  const n = bars.length, out = new Array(n).fill(N), piv = zigzagPivots(bars, deviation, depth);
+  piv.forEach((a, k) => {
+    out[a.i] = a.price;
+    const b = piv[k + 1];
+    if (b)
+      for (let i = a.i + 1; i < b.i; i++)
+        out[i] = a.price + ((b.price - a.price) * (i - a.i)) / (b.i - a.i);
+  });
+  return out;
+}
+// The zigzag's turning points, oldest first; the last one is the current leg's extreme so far.
+function zigzagPivots(bars, deviation, depth) {
   const n = bars.length,
-    out = new Array(n).fill(N),
     dev = deviation / 100,
     piv = []; // confirmed pivots { i, price }, alternating high and low
   let dir = 0, // 0 no leg yet, 1 rising (tracking the high), -1 falling (tracking the low)
@@ -2836,14 +2979,7 @@ function zigzagOf(bars, deviation, depth) {
       i: ext,
       price: dir === 1 ? bars[ext].high : bars[ext].low,
     });
-  piv.forEach((a, k) => {
-    out[a.i] = a.price;
-    const b = piv[k + 1];
-    if (b)
-      for (let i = a.i + 1; i < b.i; i++)
-        out[i] = a.price + ((b.price - a.price) * (i - a.i)) / (b.i - a.i);
-  });
-  return out;
+  return piv;
 }
 
 function pivotsOf(bars, period) {

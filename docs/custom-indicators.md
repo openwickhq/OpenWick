@@ -56,12 +56,14 @@ Each output is one plot. `calc` must return an array for it under the same key.
 | `label` | No | The name in the legend and colour settings. Defaults to the key |
 | `color` | No | A colour. Use hex, like `#2962ff`, so the colour picker in the settings box can show it |
 | `lineWidth` | No | 1 to 4, for lines |
+| `hidden` | No | `true`: not drawn and not in the legend, but there for alerts and the strategy tester (a signal such as 1 buy, -1 sell) |
+| `scaleLabel` | No | `true`: the line's label is shown on the price scale next to its value (as Auto Fib does with "0.618") |
 
 ## calc(bars, p, ta)
 
 - `bars` is the chart's bars, oldest first: `{ time, open, high, low, close, volume }`, with `time` in seconds (UTC).
 - `p` holds your inputs, `p.length` and so on.
-- `ta` holds the building blocks: `sma, ema, rma, wma, vwma, hma, dema, tema, alma, linreg, stdev, dev, highest, lowest, change, sum, rsi, atr, tr, crossover, crossunder, macd, supertrend, psar, dmi, source`, and `compute(id, bars, params)` for any of the 88 built-in indicators. They follow the Pine Script `ta.*` formulas.
+- `ta` holds the building blocks: `sma, ema, rma, wma, vwma, hma, dema, tema, alma, linreg, stdev, dev, highest, lowest, change, sum, rsi, atr, tr, crossover, crossunder, macd, supertrend, psar, dmi, source`, and `compute(id, bars, params)` for any of the 92 built-in indicators. They follow the Pine Script `ta.*` formulas.
 
 Return an object with one plain array per output, each exactly as long as `bars`. Use `NaN` (or `null`) where there's no value yet, like the first 13 bars of a 14-bar average. Optional extras:
 

@@ -768,7 +768,8 @@ export class ChartPane {
         this.main.attachPrimitive(ch);
         this.vpPrims.push(ch);
       }
-      const outs = def.outputs.filter((o) => Array.isArray(res[o.key]) && (o.plot !== false || !res.channel) && !ind.style?.off?.[o.key]);
+      // `hidden` outputs (a divergence or break signal) are for alerts and strategies only.
+      const outs = def.outputs.filter((o) => Array.isArray(res[o.key]) && !o.hidden && (o.plot !== false || !res.channel) && !ind.style?.off?.[o.key]);
       if (!outs.length) continue;
       const src = String(ind.params?.source || "");
       const parentPane = src.startsWith("ind:") ? paneOf[src.split(":")[1]] : undefined;
@@ -792,6 +793,8 @@ export class ChartPane {
           crosshairMarkerVisible: false,
           title: "",
           ...(bottom ? { priceScaleId: `vol-${ind.uid}`, lastValueVisible: ind.style?.scaleLabels ?? false } : {}),
+          // Levels named on the price scale (Auto Fib: "0.618").
+          ...(out.scaleLabel ? { lastValueVisible: ind.style?.scaleLabels ?? true, title: out.label } : {}),
         };
         const s = out.kind === "histogram"
           ? this.chart.addSeries(LW.HistogramSeries, opts, pane)
@@ -933,7 +936,7 @@ export class ChartPane {
         : res.pending
           ? '<span class="muted">loading…</span>'
           : def.outputs
-            .filter((o) => !ind.style?.off?.[o.key])
+            .filter((o) => !o.hidden && !ind.style?.off?.[o.key])
             .map((o) => {
               const v = res[o.key]?.[i];
               return Number.isFinite(v)
