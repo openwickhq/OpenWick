@@ -28,11 +28,11 @@ Every country gets the same pages: movers and breadth, the screener with company
 | | |
 |---|---|
 | ![Technical ratings](docs/screenshots/technicals.png) | ![A company page](docs/screenshots/symbol.png) |
-| **Technical ratings**: oscillators and moving averages, on any timeframe | **Company pages**: price, key stats, technicals, financials, seasonals |
+| **Technical ratings**: oscillators and moving averages, on any timeframe (here Reliance) | **Company pages**: price, key stats, technicals, financials, seasonals, in the company's own currency (here Toyota) |
 | ![Screener](docs/screenshots/screener.png) | ![Heatmap](docs/screenshots/heatmap.png) |
-| **Screener**: NIFTY 500, indices and crypto, with ready-made screens | **Heatmap**: every NIFTY 500 company by industry and size |
+| **Screener**: each country's main list, its indices and crypto, with ready-made screens (here the FTSE 350) | **Heatmap**: every company in a country's main list by sector and size (here the S&P 500 + Nasdaq-100) |
 | ![Markets](docs/screenshots/markets.png) | ![Notes](docs/screenshots/notes.png) |
-| **Markets**: today's gainers, losers and sectors, and breadth for every index | **Notes**: trade plans with risk and reward, investment theses and a journal |
+| **Markets**: today's gainers, losers and sectors, and breadth for every index (here India) | **Notes**: trade plans with risk and reward, investment theses and a journal |
 
 ## Install
 
