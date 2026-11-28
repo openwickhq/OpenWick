@@ -2,7 +2,7 @@
 // The screener and heatmap have their own pages (public/screener.html, public/heatmap.html).
 import { countryCode, PICKS } from "./country.js";
 import { currencyOf } from "./currency.js";
-import { exchangeOf, sessionNow } from "../lib/markets.js";
+import { exchangeOf } from "../lib/markets.js";
 import {
   api,
   download,
@@ -18,6 +18,7 @@ import {
 import { BY_ID, INDICATORS } from "../lib/indicators.js";
 import { openScriptEditor, signalRules } from "./script-editor.js";
 import { renderNews } from "./research.js";
+import { marketStatus as sharedStatus } from "./market-status.js";
 import { initViews } from "./views.js";
 import { objectsPanel } from "./objects.js";
 import { notesPanel } from "./notes.js";
@@ -497,19 +498,10 @@ export function initPanels(app) {
 
   // ---------- details card for the chart's symbol ----------
   const newsCache = {};
+  // "Market open · closes 15:30 IST", "Lunch break · reopens 13:00 Tokyo time"… (market-status.js)
   function marketStatus(s) {
-    const k = kindOf(s);
-    if (k === "crypto") return [true, "Market open 24/7"];
-    const day = new Date().getUTCDay();
-    if (k === "forex") return day >= 1 && day <= 5 ? [true, "Market open"] : [false, "Market closed for the weekend"];
-    // Stocks and indices: their own exchange's hours (lunch breaks in Tokyo and Hong Kong included).
-    const ex = exchangeOf(s);
-    if (!ex) return [false, ""];
-    const st = sessionNow(ex);
-    const tz = st.tzLabel === "IST" ? "IST" : `${st.tzLabel} time`;
-    if (st.open) return [true, `Market open · closes ${st.closes} ${tz}`];
-    if (st.lunch) return [false, `Lunch break · reopens ${st.opens} ${tz}`];
-    return [false, `Market closed · opens ${st.opens} ${tz}${st.opensDay ? ` ${st.opensDay}` : " on trading days"}`];
+    const m = sharedStatus(s, kindOf(s));
+    return [!!m.open, /^(Open|Closed)/.test(m.text) ? `Market ${m.text[0].toLowerCase()}${m.text.slice(1)}` : m.text];
   }
   function drawDetails() {
     const box = $("#wlDetails");

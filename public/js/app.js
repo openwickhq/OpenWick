@@ -1,5 +1,6 @@
 import { EXCHANGES } from "../lib/markets.js";
-import { homeExchange, home, HOME, starterWatchlist, starterLists, countryCode } from "./country.js";
+import { homeExchange, home, HOME, starterWatchlist, starterLists, countryCode, PICKS } from "./country.js";
+import { marketStatus, exchangeStatus, forexOpen } from "./market-status.js";
 import { firstRun, openSetup } from "./first-run.js";
 import { api, download, esc, fmtPrice, ticker, exchange, TAB_ID } from "./api.js";
 import { ChartPane, CHART_TYPES, newUid } from "./chart.js";
@@ -133,6 +134,8 @@ class App {
     this.listenAlerts();
     this.checkHealth();
     setInterval(() => this.checkHealth(), 60000);
+    $("#mktBtn").onclick = (e) => { e.stopPropagation(); this.openMarketsMenu(); };
+    setInterval(() => this.updateMarketDot(), 30000);
     await this.openFromUrl();
   }
 
@@ -720,6 +723,7 @@ class App {
     $("#logBtn").classList.toggle("on", !!p.cfg.log);
     $("#replayBtn").classList.toggle("on", !!p.replay);
     this.updateTitle();
+    this.updateMarketDot();
   }
 
   // The browser tab shows the active chart's symbol, last price and change, like
@@ -1594,10 +1598,57 @@ class App {
       );
     }
   }
+  // The data sources' health, shown in the markets menu (and the dot greys out when the local
+  // server stops answering).
   setStatus(level, title) {
-    const el = $("#status");
-    el.className = `status ${level}`;
-    if (title) el.title = title;
+    this.health = { level, title };
+    this.updateMarketDot();
+  }
+
+  // The top-right dot: the chart's market, green while it's open and red while it's closed.
+  updateMarketDot() {
+    const b = $("#mktBtn");
+    if (!b || !this.active) return;
+    const m = marketStatus(this.active.cfg.symbol);
+    const offline = this.health?.level === "bad";
+    b.classList.toggle("open", !offline && m.open === true);
+    b.classList.toggle("closed", !offline && m.open === false);
+    const line = offline ? this.health.title : m.open == null ? "Market hours aren't known for this symbol" : `${m.market}: ${m.text}`;
+    b.title = `${line}\nClick for every market`;
+    b.setAttribute("aria-label", line);
+  }
+
+  // Click the dot: every market, open or closed now, with the chart's own at the top.
+  openMarketsMenu() {
+    const old = document.querySelector(".mkt-menu");
+    if (old) return old.remove();
+    const dot = (open) => `<span class="mk-dot ${open ? "open" : open === false ? "closed" : ""}"></span>`;
+    const row = (name, sub, st, cur = false) => `<div class="mk-row ${cur ? "cur" : ""}">${dot(st.open)}<span class="mk-name">${esc(name)}<small>${esc(sub)}</small></span><span class="mk-txt">${esc(st.text)}</span></div>`;
+    const sym = this.active.cfg.symbol;
+    const mine = marketStatus(sym);
+    const fx = forexOpen();
+    const m = document.createElement("div");
+    m.className = "wl-menu mkt-menu";
+    m.setAttribute("role", "menu");
+    m.innerHTML = `<div class="mk-h">This chart</div>${row(ticker(sym), mine.market || "", mine.open == null ? { open: null, text: "Hours not known" } : mine, true)}
+      <div class="mk-h">Markets</div>${PICKS.map((c) => row(c.short || c.name, EXCHANGES[c.ex].name, exchangeStatus(c.ex), c.ex === mine.ex)).join("")}
+      ${row("Crypto", "Every exchange", { open: true, text: "Open 24/7" })}
+      ${row("Forex", "Currencies and gold", { open: fx, text: fx ? "Open · closes Friday 22:00 UTC" : "Closed · opens Sunday 22:00 UTC" })}
+      <div class="mk-foot">Times are each exchange's regular session; public holidays aren't shown.${this.health?.title ? `<br>Data: ${esc(this.health.title)}` : ""}</div>`;
+    document.body.append(m);
+    const r = $("#mktBtn").getBoundingClientRect();
+    m.style.top = `${r.bottom + 6}px`;
+    m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
+    const close = (e) => {
+      if (e.type === "keydown" ? e.key !== "Escape" : m.contains(e.target)) return;
+      m.remove();
+      document.removeEventListener("mousedown", close, true);
+      document.removeEventListener("keydown", close, true);
+    };
+    setTimeout(() => {
+      document.addEventListener("mousedown", close, true);
+      document.addEventListener("keydown", close, true);
+    });
   }
 
   toast(html, kind = "", ms = 3500) {

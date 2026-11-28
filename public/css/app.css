@@ -239,23 +239,21 @@ select.tb {
   text-align: center;
   flex: none;
 }
-.status {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--muted);
-  margin: 0 6px 0 8px;
-  flex: none;
-}
-.status.ok {
-  background: var(--up);
-}
-.status.warn {
-  background: #f7a600;
-}
-.status.bad {
-  background: var(--down);
-}
+/* The top-right market dot (app.js updateMarketDot): green open, red closed, grey unknown. */
+.mkt-btn { flex: none; display: grid; place-items: center; width: 28px; height: 28px; margin: 0 2px 0 4px; padding: 0; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.mkt-btn:hover { background: var(--hover); }
+.mkt-dot, .mk-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); opacity: .6; flex: none; }
+.mkt-btn.open .mkt-dot, .mk-dot.open { background: var(--up); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 22%, transparent); }
+.mkt-btn.closed .mkt-dot, .mk-dot.closed { background: var(--down); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--down) 18%, transparent); }
+.mk-dot { width: 8px; height: 8px; box-shadow: none !important; }
+.mkt-menu { width: 460px; max-width: calc(100vw - 16px); padding: 6px 4px; }
+.mk-h { padding: 8px 10px 4px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.mk-row { display: grid; grid-template-columns: 8px 120px 1fr; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 6px; }
+.mk-row.cur { background: var(--accent-soft); }
+.mk-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-name small { display: block; font-weight: 400; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.mk-txt { font-size: 12px; color: var(--muted); text-align: right; }
+.mk-foot { margin: 6px 10px 2px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; line-height: 1.5; color: var(--muted); }
 
 /* main layout */
 .main {

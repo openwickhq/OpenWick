@@ -8,6 +8,7 @@ import { askText, notice } from "./dialog.js";
 import "./selects.js";
 import { country, setCountry, PICKS } from "./country.js";
 import { firstRun } from "./first-run.js";
+import { exchangeStatus } from "./market-status.js";
 import { EXCHANGES, sessionNow, shortName, bigMoney } from "../lib/markets.js";
 
 export const $ = (s, el = document) => el.querySelector(s);
@@ -184,7 +185,7 @@ function openCountryMenu(btn) {
   m.setAttribute("role", "menu");
   m.innerHTML = `<div class="cm-title">Market</div>${PICKS.map((c) => {
     const st = sessionNow(c.ex);
-    return `<button role="menuitemradio" aria-checked="${c.code === cur}" data-c="${c.code}" class="${c.code === cur ? "on" : ""}"><span class="cm-name">${esc(c.name)}</span><span class="cm-ex">${esc(EXCHANGES[c.ex].name)}</span><span class="cm-dot ${st.open ? "open" : ""}" title="${st.open ? "Open now" : "Closed now"}"></span></button>`;
+    return `<button role="menuitemradio" aria-checked="${c.code === cur}" data-c="${c.code}" class="${c.code === cur ? "on" : ""}"><span class="cm-name">${esc(c.name)}</span><span class="cm-ex">${esc(EXCHANGES[c.ex].name)}</span><span class="cm-dot ${st.open ? "open" : ""}" title="${esc(exchangeStatus(c.ex).text)}"></span></button>`;
   }).join("")}<div class="cm-foot">Charts, watchlists and notes work for every market, whichever is picked. Crypto is on every page.</div>`;
   document.body.append(m);
   const r = btn.getBoundingClientRect();
